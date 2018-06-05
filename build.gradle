@@ -1,0 +1,50 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    repositories {
+        google()
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:3.1.2'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        jcenter()
+        maven { url 'https://jitpack.io' }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+project.ext {
+    def sdkVersion = 27
+    def supportVersion = "27.1.1"
+
+    // android
+    compileSdkVersion = sdkVersion
+
+    // android.defaultConfig
+    minSdkVersion = 15
+    targetSdkVersion = sdkVersion
+    versionCode = 1
+    versionName = "1.0.0"
+
+    // dependencies
+    supportAppcompat = "com.android.support:appcompat-v7:${supportVersion}"
+    supportDesign = "com.android.support:design:${supportVersion}"
+    supportAnnotations = "com.android.support:support-annotations:${supportVersion}"
+    junit = 'junit:junit:4.12'
+    testRunner = 'com.android.support.test:runner:1.0.2'
+    testEspresso = 'com.android.support.test.espresso:espresso-core:3.0.2'
+    adapter = 'com.github.ccolorcat:Adapter:v1.1.0'
+}
