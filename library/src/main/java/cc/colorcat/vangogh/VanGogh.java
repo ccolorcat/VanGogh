@@ -16,6 +16,7 @@
 
 package cc.colorcat.vangogh;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -57,8 +58,7 @@ public class VanGogh {
     private final DiskCache diskCache;
 
     private final Task.Options defaultOptions;
-    private final Resources resources;
-    private final Resources.Theme theme;
+    private final Context context;
     private final boolean debug;
 
     private final List<Transformation> transformations;
@@ -112,8 +112,7 @@ public class VanGogh {
         downloader = builder.downloader;
         defaultFromPolicy = builder.defaultFromPolicy;
         defaultOptions = builder.defaultOptions;
-        resources = builder.resources;
-        theme = builder.theme;
+        context = builder.context;
         debug = builder.debug;
         transformations = Utils.immutableList(builder.transformations);
         loadingDrawable = builder.loadingDrawable;
@@ -122,6 +121,15 @@ public class VanGogh {
         this.memoryCache = memoryCache;
         this.diskCache = diskCache;
         this.dispatcher = new Dispatcher(this, builder.executor);
+    }
+
+    public static Uri toUri(Resources resources, @DrawableRes int resId) {
+        return new Uri.Builder()
+                .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
+                .authority(resources.getResourcePackageName(resId))
+                .appendPath(resources.getResourceTypeName(resId))
+                .appendPath(resources.getResourceEntryName(resId))
+                .build();
     }
 
     /**
@@ -144,8 +152,7 @@ public class VanGogh {
      * @see #load(String)
      */
     public Task.Creator load(@DrawableRes int resId) {
-        Uri uri = Uri.parse(Utils.SCHEME_VANGOGH + "://" + Utils.HOST_RESOURCE + "?id=" + resId);
-        return this.load(uri);
+        return this.load(VanGogh.toUri(resources(), resId));
     }
 
     /**
@@ -248,12 +255,16 @@ public class VanGogh {
         return diskCache;
     }
 
+    Context context() {
+        return context;
+    }
+
     Resources resources() {
-        return resources;
+        return context.getResources();
     }
 
     Resources.Theme theme() {
-        return theme;
+        return context.getTheme();
     }
 
     boolean debug() {
@@ -297,8 +308,9 @@ public class VanGogh {
         private long diskCacheSize;
 
         private Task.Options defaultOptions;
-        private Resources resources;
-        private Resources.Theme theme;
+        private Context context;
+        //        private Resources resources;
+//        private Resources.Theme theme;
         private boolean debug;
 
         private List<Transformation> transformations;
@@ -319,8 +331,9 @@ public class VanGogh {
             cacheDirectory = Utils.getCacheDirectory(context);
             diskCacheSize = (long) Math.min(50 * 1024 * 1024, cacheDirectory.getUsableSpace() * 0.1);
             defaultOptions = new Task.Options();
-            resources = context.getResources();
-            theme = context.getTheme();
+            this.context = context.getApplicationContext();
+//            resources = context.getResources();
+//            theme = context.getTheme();
             debug = false;
             transformations = new ArrayList<>(4);
             fade = true;
@@ -480,9 +493,9 @@ public class VanGogh {
          */
         public Builder defaultLoading(@DrawableRes int resId) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                loadingDrawable = resources.getDrawable(resId, theme);
+                loadingDrawable = context.getDrawable(resId);
             } else {
-                loadingDrawable = resources.getDrawable(resId);
+                loadingDrawable = context.getResources().getDrawable(resId);
             }
             return this;
         }
@@ -500,9 +513,9 @@ public class VanGogh {
          */
         public Builder defaultError(@DrawableRes int resId) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                errorDrawable = resources.getDrawable(resId, theme);
+                errorDrawable = context.getDrawable(resId);
             } else {
-                errorDrawable = resources.getDrawable(resId);
+                errorDrawable = context.getResources().getDrawable(resId);
             }
             return this;
         }

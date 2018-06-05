@@ -35,6 +35,7 @@ import cc.colorcat.adapter.RvAdapter;
 import cc.colorcat.adapter.RvHolder;
 import cc.colorcat.adapter.SimpleRvAdapter;
 import cc.colorcat.vangogh.CornerTransformation;
+import cc.colorcat.vangogh.Transformation;
 import cc.colorcat.vangogh.VanGogh;
 
 /**
@@ -85,16 +86,16 @@ public class VanGoghActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_vangogh);
 
-        float corner = toPx(16F);
-        final float[] tlBrCorner = new float[]{corner, corner, 0F, 0F, corner, corner, 0F, 0F};
-        final float[] trBlCorner = new float[]{0F, 0F, corner, corner, 0F, 0F, corner, corner};
+        float cornerRadius = toPx(24F);
+        final float[] tlBrCorner = new float[]{cornerRadius, cornerRadius, 0F, 0F, cornerRadius, cornerRadius, 0F, 0F};
+        final float[] trBlCorner = new float[]{0F, 0F, cornerRadius, cornerRadius, 0F, 0F, cornerRadius, cornerRadius};
 
         RecyclerView rv = findViewById(R.id.rv_item);
         rv.setLayoutManager(new GridLayoutManager(this, 2));
         mAdapter = new SimpleRvAdapter<String>(mData, R.layout.item_image) {
             float borderWidth = 0F;
-            CornerTransformation tlBr = CornerTransformation.create(tlBrCorner, borderWidth, Color.RED);
-            CornerTransformation trBl = CornerTransformation.create(trBlCorner, borderWidth, Color.BLUE);
+            Transformation tlBr = CornerTransformation.create(tlBrCorner, borderWidth, Color.RED);
+            Transformation trBl = CornerTransformation.create(trBlCorner, borderWidth, Color.BLUE);
 
             @Override
             public void bindView(@NonNull RvHolder holder, @NonNull String data) {

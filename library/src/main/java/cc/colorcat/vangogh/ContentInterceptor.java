@@ -16,28 +16,39 @@
 
 package cc.colorcat.vangogh;
 
+import android.content.ContentResolver;
+import android.content.Context;
 import android.net.Uri;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 
 /**
  * Author: cxx
- * Date: 2017-08-29
+ * Date: 2018-06-05
  * GitHub: https://github.com/ccolorcat
  */
-public class FileInterceptor implements Interceptor {
+class ContentInterceptor implements Interceptor {
+    private Context context;
+
+    ContentInterceptor(Context context) {
+        this.context = context;
+    }
 
     @Override
     public Result intercept(Chain chain) throws IOException {
         Task task = chain.task();
         int fromPolicy = task.fromPolicy() & From.DISK.policy;
-        Uri uri = task.uri();
-        if (fromPolicy != 0 && "file".equals(uri.getScheme())) {
-            File file = new File(uri.getPath());
-            long length = file.length();
-            return new Result(new FileInputStream(file), length, From.DISK);
+        if (fromPolicy != 0) {
+            Uri uri = task.uri();
+            if (uri == Uri.EMPTY) {
+                throw new IOException("empty uri");
+            }
+            String scheme = uri.getScheme();
+            if (ContentResolver.SCHEME_FILE.equals(scheme)
+                    || ContentResolver.SCHEME_CONTENT.equals(scheme)
+                    || ContentResolver.SCHEME_ANDROID_RESOURCE.equals(scheme)) {
+                return new Result(context.getContentResolver().openInputStream(uri), From.DISK);
+            }
         }
         return chain.proceed(task);
     }

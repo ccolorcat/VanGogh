@@ -56,7 +56,7 @@ class RealCall implements Call {
 
     private Result getResultWithInterceptor() throws IOException {
         List<Interceptor> users = vanGogh.interceptors();
-        List<Interceptor> interceptors = new ArrayList<>(users.size() + 8);
+        List<Interceptor> interceptors = new ArrayList<>(users.size() + 7);
         interceptors.addAll(users);
         if (vanGogh.debug()) {
             interceptors.add(new WatermarkInterceptor());
@@ -64,8 +64,7 @@ class RealCall implements Call {
         interceptors.add(new TransformInterceptor());
         interceptors.add(new MemoryCacheInterceptor(vanGogh.memoryCache()));
         interceptors.add(new StreamInterceptor());
-        interceptors.add(new ResourcesInterceptor(vanGogh.resources()));
-        interceptors.add(new FileInterceptor());
+        interceptors.add(new ContentInterceptor(vanGogh.context()));
         DiskCache cache = vanGogh.diskCache();
         if (cache != null) {
             interceptors.add(new DiskCacheInterceptor(cache));

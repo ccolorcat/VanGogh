@@ -34,6 +34,8 @@ public class Client extends Application {
     }
 
     private void initVanGogh() {
-        VanGogh vanGogh = new VanGogh.Builder(this).build();
+        VanGogh vanGogh = new VanGogh.Builder(this)
+                .build();
+        VanGogh.setSingleton(vanGogh);
     }
 }

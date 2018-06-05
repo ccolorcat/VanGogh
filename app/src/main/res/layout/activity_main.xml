@@ -1,14 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="16dp"
     tools:context=".MainActivity">
+
+    <ImageView
+        android:id="@+id/iv_local"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:contentDescription="@string/local_image"
+        android:scaleType="fitCenter" />
+
+    <Button
+        android:id="@+id/btn_pick_drawable"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:text="@string/show_drawable"
+        android:textAllCaps="false" />
+
+    <Button
+        android:id="@+id/btn_pick_image"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:text="@string/pick_image"
+        android:textAllCaps="false" />
 
     <Button
         android:id="@+id/btn_vangogh"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
         android:text="@string/app_name"
         android:textAllCaps="false" />
-</FrameLayout>
+</LinearLayout>

@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">VanGogh</string>
     <string name="picture">picture</string>
+    <string name="pick_image">Pick Image</string>
+    <string name="local_image">local image</string>
+    <string name="show_drawable">Show Drawable</string>
 </resources>
