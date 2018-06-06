@@ -8,6 +8,8 @@ buildscript {
 
     dependencies {
         classpath 'com.android.tools.build:gradle:3.1.2'
+        // jitPack
+        classpath 'com.github.dcendents:android-maven-gradle-plugin:1.5'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -43,8 +45,10 @@ project.ext {
     supportAppcompat = "com.android.support:appcompat-v7:${supportVersion}"
     supportDesign = "com.android.support:design:${supportVersion}"
     supportAnnotations = "com.android.support:support-annotations:${supportVersion}"
+    supportConstraintLayout = "com.android.support.constraint:constraint-layout:1.0.2"
     junit = 'junit:junit:4.12'
     testRunner = 'com.android.support.test:runner:1.0.2'
     testEspresso = 'com.android.support.test.espresso:espresso-core:3.0.2'
     adapter = 'com.github.ccolorcat:Adapter:v1.1.0'
+    gson = 'com.google.code.gson:gson:2.8.5'
 }

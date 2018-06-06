@@ -16,25 +16,33 @@
 
 package cc.colorcat.vangogh.sample;
 
-import android.graphics.Color;
+import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.AsyncTaskLoader;
+import android.support.v4.content.Loader;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.GridLayoutManager;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.TypedValue;
 import android.widget.ImageView;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import cc.colorcat.adapter.RvAdapter;
 import cc.colorcat.adapter.RvHolder;
 import cc.colorcat.adapter.SimpleRvAdapter;
 import cc.colorcat.vangogh.CornerTransformation;
+import cc.colorcat.vangogh.SquareTransformation;
 import cc.colorcat.vangogh.Transformation;
 import cc.colorcat.vangogh.VanGogh;
 
@@ -43,41 +51,10 @@ import cc.colorcat.vangogh.VanGogh;
  * Date: 2018-06-05
  * GitHub: https://github.com/ccolorcat
  */
-public class VanGoghActivity extends AppCompatActivity {
-    private static final List<String> IMAGES = Arrays.asList(
-            "http://img.mukewang.com/55237dcc0001128c06000338-300-170.jpg",
-            "http://img.mukewang.com/55249cf30001ae8a06000338-300-170.jpg",
-            "http://img.mukewang.com/5523711700016d1606000338-300-170.jpg",
-            "http://img.mukewang.com/551e470500018dd806000338-300-170.jpg",
-            "http://img.mukewang.com/551de0570001134f06000338-300-170.jpg",
-            "http://img.mukewang.com/552640c300018a9606000338-300-170.jpg",
-            "http://img.mukewang.com/551b92340001c9f206000338-300-170.jpg",
-            "http://img.mukewang.com/5518c3d7000175af06000338-300-170.jpg",
-            "http://img.mukewang.com/551b98ae0001e57906000338-300-170.jpg",
-            "http://img.mukewang.com/550b86560001009406000338-300-170.jpg",
-            "http://img.mukewang.com/551916790001125706000338-300-170.jpg",
-            "http://img.mukewang.com/5518ecf20001cb4e06000338-300-170.jpg",
-            "http://img.mukewang.com/5518bbe30001c32006000338-300-170.jpg",
-            "http://img.mukewang.com/551380400001da9b06000338-300-170.jpg",
-            "http://img.mukewang.com/550a33b00001738a06000338-300-170.jpg",
-            "http://img.mukewang.com/5513a1b50001752806000338-300-170.jpg",
-            "http://img.mukewang.com/5513e20600017c1806000338-300-170.jpg",
-            "http://img.mukewang.com/550a78720001f37a06000338-300-170.jpg",
-            "http://img.mukewang.com/550a836c0001236606000338-300-170.jpg",
-            "http://img.mukewang.com/550a87da000168db06000338-300-170.jpg",
-            "http://img.mukewang.com/530f0ef700019b5906000338-300-170.jpg",
-            "http://img.mukewang.com/549bda090001c53e06000338-300-170.jpg",
-            "http://img.mukewang.com/547d5a45000156f406000338-300-170.jpg",
-            "http://img.mukewang.com/54780ea90001f3b406000338-300-170.jpg",
-            "http://img.mukewang.com/547ed1c9000150cc06000338-300-170.jpg",
-            "http://img.mukewang.com/54214727000160e306000338-300-170.jpg",
-            "http://img.mukewang.com/54125edc0001ce6306000338-300-170.jpg",
-            "http://img.mukewang.com/548165820001b4b006000338-300-170.jpg",
-            "http://img.mukewang.com/53d74f960001ae9d06000338-300-170.jpg",
-            "http://img.mukewang.com/54c87c73000150cf06000338-300-170.jpg"
-    );
+public class VanGoghActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Result<List<Course>>> {
+    private static final int LOADER_ID = 23;
 
-    private List<String> mData = new ArrayList<>();
+    private List<Course> mData = new ArrayList<>();
     private SwipeRefreshLayout mRefreshLayout;
     private RvAdapter mAdapter;
 
@@ -86,48 +63,97 @@ public class VanGoghActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_vangogh);
 
-        float cornerRadius = toPx(24F);
-        final float[] tlBrCorner = new float[]{cornerRadius, cornerRadius, 0F, 0F, cornerRadius, cornerRadius, 0F, 0F};
-        final float[] trBlCorner = new float[]{0F, 0F, cornerRadius, cornerRadius, 0F, 0F, cornerRadius, cornerRadius};
-
         RecyclerView rv = findViewById(R.id.rv_item);
-        rv.setLayoutManager(new GridLayoutManager(this, 2));
-        mAdapter = new SimpleRvAdapter<String>(mData, R.layout.item_image) {
-            float borderWidth = 0F;
-            Transformation tlBr = CornerTransformation.create(tlBrCorner, borderWidth, Color.RED);
-            Transformation trBl = CornerTransformation.create(trBlCorner, borderWidth, Color.BLUE);
-
-            @Override
-            public void bindView(@NonNull RvHolder holder, @NonNull String data) {
-                RvHolder.Helper helper = holder.getHelper();
-                ImageView imageView = helper.get(R.id.image);
-                VanGogh.with(imageView.getContext())
-                        .load(data)
-                        .addTransformation((helper.getPosition() & 1) == 0 ? trBl : tlBr)
-                        .into(imageView);
-            }
-        };
+        rv.setLayoutManager(new LinearLayoutManager(this));
+        rv.addOnScrollListener(VanGoghOnScrollListener.get());
+        mAdapter = new CourseAdapter(mData, R.layout.item_course);
         rv.setAdapter(mAdapter);
 
         mRefreshLayout = findViewById(R.id.srl_root);
         mRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
-                refresh();
+                refreshData();
             }
         });
-
-        refresh();
+        refreshData();
     }
 
-    private void refresh() {
-        mData.clear();
-        mData.addAll(IMAGES);
-        mAdapter.notifyDataSetChanged();
+    private void refreshData() {
+        getSupportLoaderManager().restartLoader(LOADER_ID, null, this).forceLoad();
+    }
+
+    @NonNull
+    @Override
+    public Loader<Result<List<Course>>> onCreateLoader(int id, @Nullable Bundle args) {
+        return new CourseLoader(this);
+    }
+
+    @Override
+    public void onLoadFinished(@NonNull Loader<Result<List<Course>>> loader, Result<List<Course>> data) {
+        if (data != null && data.getStatus() == Result.STATUS_OK) {
+            mData.clear();
+            mData.addAll(data.getData());
+            mAdapter.notifyDataSetChanged();
+        }
         mRefreshLayout.setRefreshing(false);
     }
 
-    private float toPx(float dp) {
-        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics());
+    @Override
+    public void onLoaderReset(@NonNull Loader<Result<List<Course>>> loader) {
+    }
+
+
+    private static class CourseLoader extends AsyncTaskLoader<Result<List<Course>>> {
+        private CourseLoader(@NonNull Context context) {
+            super(context);
+        }
+
+        @Nullable
+        @Override
+        public Result<List<Course>> loadInBackground() {
+            BufferedReader reader = null;
+            try {
+                Gson gson = new GsonBuilder().create();
+                reader = new BufferedReader(new InputStreamReader(getContext().getResources().openRawResource(R.raw.data)));
+                return gson.fromJson(reader, new TypeToken<Result<List<Course>>>() {}.getType());
+            } finally {
+                Utils.close(reader);
+            }
+        }
+    }
+
+
+    private static class CourseAdapter extends SimpleRvAdapter<Course> {
+        private Transformation mSquare = new SquareTransformation();
+        private Transformation mTrBl;
+        private Transformation mTlBr;
+
+        CourseAdapter(List<? extends Course> data, int layoutResId) {
+            super(data, layoutResId);
+        }
+
+        @Override
+        public void bindView(@NonNull RvHolder holder, @NonNull Course data) {
+            if (mTlBr == null) createTransformation(holder.itemView.getContext());
+            RvHolder.Helper helper = holder.getHelper();
+            helper.setText(R.id.tv_serial_number, Integer.toString(helper.getPosition()))
+                    .setText(R.id.tv_name, data.getName())
+                    .setText(R.id.tv_description, data.getDescription());
+            ImageView icon = helper.get(R.id.iv_icon);
+            VanGogh.with(icon.getContext())
+                    .load(data.getPicSmallUrl())
+                    .addTransformation(mSquare)
+                    .addTransformation((helper.getPosition() & 1) == 0 ? mTrBl : mTlBr)
+                    .into(icon);
+        }
+
+        private void createTransformation(Context context) {
+            float radius = Utils.dpToPx(context.getResources(), 16F);
+            float[] tlBrCorner = new float[]{radius, radius, 0F, 0F, radius, radius, 0F, 0F};
+            float[] trBlCorner = new float[]{0F, 0F, radius, radius, 0F, 0F, radius, radius};
+            mTlBr = CornerTransformation.create(tlBrCorner);
+            mTrBl = CornerTransformation.create(trBlCorner);
+        }
     }
 }

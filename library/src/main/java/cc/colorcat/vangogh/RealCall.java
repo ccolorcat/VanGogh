@@ -55,22 +55,21 @@ class RealCall implements Call {
     }
 
     private Result getResultWithInterceptor() throws IOException {
-        List<Interceptor> users = vanGogh.interceptors();
+        List<Interceptor> users = vanGogh.interceptors;
         List<Interceptor> interceptors = new ArrayList<>(users.size() + 7);
         interceptors.addAll(users);
-        if (vanGogh.debug()) {
+        if (vanGogh.debug) {
             interceptors.add(new WatermarkInterceptor());
         }
         interceptors.add(new TransformInterceptor());
-        interceptors.add(new MemoryCacheInterceptor(vanGogh.memoryCache()));
+        interceptors.add(new MemoryCacheInterceptor(vanGogh.memoryCache));
         interceptors.add(new StreamInterceptor());
-        interceptors.add(new ContentInterceptor(vanGogh.context()));
-        DiskCache cache = vanGogh.diskCache();
-        if (cache != null) {
-            interceptors.add(new DiskCacheInterceptor(cache));
+        interceptors.add(new ContentInterceptor(vanGogh.context));
+        if (vanGogh.diskCache != null) {
+            interceptors.add(new DiskCacheInterceptor(vanGogh.diskCache));
         }
         interceptors.add(new NetworkInterceptor());
-        Interceptor.Chain chain = new RealInterceptorChain(interceptors, 0, task, vanGogh.downloader());
+        Interceptor.Chain chain = new RealInterceptorChain(interceptors, 0, task, vanGogh.downloader.clone());
         return chain.proceed(task);
     }
 

@@ -16,6 +16,7 @@
 
 package cc.colorcat.vangogh;
 
+import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
@@ -42,31 +43,32 @@ import java.util.concurrent.TimeUnit;
  */
 @SuppressWarnings("unused")
 public class VanGogh {
+    @SuppressLint("StaticFieldLeak")
     private static volatile VanGogh singleton;
 
     private final Dispatcher dispatcher;
-    private final int maxRunning;
-    private final int retryCount;
-    private final int connectTimeOut;
-    private final int readTimeOut;
+    final int maxRunning;
+    final int retryCount;
+    final int connectTimeOut;
+    final int readTimeOut;
 
-    private final List<Interceptor> interceptors;
-    private final Downloader downloader;
-    private final int defaultFromPolicy;
+    final List<Interceptor> interceptors;
+    final Downloader downloader;
+    final int defaultFromPolicy;
 
-    private final Cache<Bitmap> memoryCache;
-    private final DiskCache diskCache;
+    final Cache<Bitmap> memoryCache;
+    final DiskCache diskCache;
 
-    private final Task.Options defaultOptions;
-    private final Context context;
-    private final boolean debug;
+    final Task.Options defaultOptions;
+    final Context context;
+    final boolean debug;
 
-    private final List<Transformation> transformations;
+    final List<Transformation> transformations;
 
-    private final Drawable loadingDrawable;
-    private final Drawable errorDrawable;
+    final Drawable defaultLoading;
+    final Drawable defaultError;
 
-    private final boolean fade;
+    final boolean fade;
 
     /**
      * Set the global instance.
@@ -103,6 +105,15 @@ public class VanGogh {
         return singleton;
     }
 
+    public static Uri toUri(Resources resources, @DrawableRes int resId) {
+        return new Uri.Builder()
+                .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
+                .authority(resources.getResourcePackageName(resId))
+                .appendPath(resources.getResourceTypeName(resId))
+                .appendPath(resources.getResourceEntryName(resId))
+                .build();
+    }
+
     private VanGogh(Builder builder, Cache<Bitmap> memoryCache, DiskCache diskCache) {
         maxRunning = builder.maxRunning;
         retryCount = builder.retryCount;
@@ -115,21 +126,12 @@ public class VanGogh {
         context = builder.context;
         debug = builder.debug;
         transformations = Utils.immutableList(builder.transformations);
-        loadingDrawable = builder.loadingDrawable;
-        errorDrawable = builder.errorDrawable;
+        defaultLoading = builder.defaultLoading;
+        defaultError = builder.defaultError;
         fade = builder.fade;
         this.memoryCache = memoryCache;
         this.diskCache = diskCache;
         this.dispatcher = new Dispatcher(this, builder.executor);
-    }
-
-    public static Uri toUri(Resources resources, @DrawableRes int resId) {
-        return new Uri.Builder()
-                .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
-                .authority(resources.getResourcePackageName(resId))
-                .appendPath(resources.getResourceTypeName(resId))
-                .appendPath(resources.getResourceEntryName(resId))
-                .build();
     }
 
     /**
@@ -215,76 +217,12 @@ public class VanGogh {
         dispatcher.enqueue(task);
     }
 
-    Task.Options defaultOptions() {
-        return defaultOptions.clone();
-    }
-
-    int maxRunning() {
-        return maxRunning;
-    }
-
-    int retryCount() {
-        return retryCount;
-    }
-
-    int connectTimeOut() {
-        return connectTimeOut;
-    }
-
-    int readTimeOut() {
-        return readTimeOut;
-    }
-
-    List<Interceptor> interceptors() {
-        return interceptors;
-    }
-
-    Downloader downloader() {
-        return downloader.clone();
-    }
-
-    int defaultFromPolicy() {
-        return defaultFromPolicy;
-    }
-
-    Cache<Bitmap> memoryCache() {
-        return memoryCache;
-    }
-
-    DiskCache diskCache() {
-        return diskCache;
-    }
-
-    Context context() {
-        return context;
-    }
-
     Resources resources() {
         return context.getResources();
     }
 
     Resources.Theme theme() {
         return context.getTheme();
-    }
-
-    boolean debug() {
-        return debug;
-    }
-
-    List<Transformation> transformations() {
-        return transformations;
-    }
-
-    boolean fade() {
-        return fade;
-    }
-
-    Drawable defaultLoading() {
-        return loadingDrawable;
-    }
-
-    Drawable defaultError() {
-        return errorDrawable;
     }
 
     Bitmap checkMemoryCache(String stableKey) {
@@ -309,17 +247,15 @@ public class VanGogh {
 
         private Task.Options defaultOptions;
         private Context context;
-        //        private Resources resources;
-//        private Resources.Theme theme;
         private boolean debug;
 
         private List<Transformation> transformations;
         private boolean fade;
 
-        private Drawable loadingDrawable;
-        private Drawable errorDrawable;
+        private Drawable defaultLoading;
+        private Drawable defaultError;
 
-        public Builder(Context context) {
+        public Builder(Context ctx) {
             maxRunning = 6;
             retryCount = 1;
             connectTimeOut = 5000;
@@ -327,13 +263,11 @@ public class VanGogh {
             interceptors = new ArrayList<>(4);
             downloader = new HttpDownloader();
             defaultFromPolicy = From.ANY.policy;
-            memoryCacheSize = Utils.calculateMemoryCacheSize(context);
-            cacheDirectory = Utils.getCacheDirectory(context);
+            memoryCacheSize = Utils.calculateMemoryCacheSize(ctx);
+            cacheDirectory = Utils.getCacheDirectory(ctx);
             diskCacheSize = (long) Math.min(50 * 1024 * 1024, cacheDirectory.getUsableSpace() * 0.1);
             defaultOptions = new Task.Options();
-            this.context = context.getApplicationContext();
-//            resources = context.getResources();
-//            theme = context.getTheme();
+            context = ctx.getApplicationContext();
             debug = false;
             transformations = new ArrayList<>(4);
             fade = true;
@@ -484,7 +418,7 @@ public class VanGogh {
          * The default drawable to be used while the image is being loaded.
          */
         public Builder defaultLoading(Drawable loading) {
-            loadingDrawable = loading;
+            defaultLoading = loading;
             return this;
         }
 
@@ -493,9 +427,9 @@ public class VanGogh {
          */
         public Builder defaultLoading(@DrawableRes int resId) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                loadingDrawable = context.getDrawable(resId);
+                defaultLoading = context.getDrawable(resId);
             } else {
-                loadingDrawable = context.getResources().getDrawable(resId);
+                defaultLoading = context.getResources().getDrawable(resId);
             }
             return this;
         }
@@ -504,7 +438,7 @@ public class VanGogh {
          * The default drawable to be used if the request image could not be loaded.
          */
         public Builder defaultError(Drawable error) {
-            errorDrawable = error;
+            defaultError = error;
             return this;
         }
 
@@ -513,9 +447,9 @@ public class VanGogh {
          */
         public Builder defaultError(@DrawableRes int resId) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                errorDrawable = context.getDrawable(resId);
+                defaultError = context.getDrawable(resId);
             } else {
-                errorDrawable = context.getResources().getDrawable(resId);
+                defaultError = context.getResources().getDrawable(resId);
             }
             return this;
         }

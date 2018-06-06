@@ -6,7 +6,7 @@ android {
     defaultConfig {
         applicationId "cc.colorcat.vangogh.sample"
 
-        minSdkVersion rootProject.ext.minSdkVersion
+        minSdkVersion 17
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode rootProject.ext.versionCode
         versionName rootProject.ext.versionName
@@ -25,7 +25,9 @@ dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation rootProject.ext.supportAppcompat
     implementation rootProject.ext.supportDesign
+    implementation rootProject.ext.supportConstraintLayout
     implementation rootProject.ext.adapter
+    implementation rootProject.ext.gson
     testImplementation rootProject.ext.junit
     androidTestImplementation rootProject.ext.testRunner
     androidTestImplementation rootProject.ext.testEspresso

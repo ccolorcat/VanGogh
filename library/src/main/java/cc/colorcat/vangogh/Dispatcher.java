@@ -82,7 +82,7 @@ class Dispatcher {
 
     private void promoteTask() {
         RealCall call;
-        while (!pause && running.size() < vanGogh.maxRunning() && (call = waiting.pollLast()) != null) {
+        while (!pause && running.size() < vanGogh.maxRunning && (call = waiting.pollLast()) != null) {
             if (running.add(call)) {
                 executor.submit(new AsyncCall(call));
             }
@@ -134,7 +134,7 @@ class Dispatcher {
             } finally {
                 synchronized (waiting) {
                     running.remove(call);
-                    if (result != null || call.getAndIncrement() >= vanGogh.retryCount()) {
+                    if (result != null || call.getAndIncrement() >= vanGogh.retryCount) {
                         completeCall(call, result, cause);
                     } else if (!waiting.contains(call)) {
                         waiting.offer(call);

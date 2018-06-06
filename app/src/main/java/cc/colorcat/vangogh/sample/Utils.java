@@ -16,29 +16,33 @@
 
 package cc.colorcat.vangogh.sample;
 
-import android.app.Application;
+import android.content.res.Resources;
+import android.util.TypedValue;
 
-import cc.colorcat.vangogh.VanGogh;
+import java.io.Closeable;
+import java.io.IOException;
 
 /**
  * Author: cxx
- * Date: 2018-06-05
+ * Date: 2018-06-06
  * GitHub: https://github.com/ccolorcat
  */
-public class Client extends Application {
+final class Utils {
 
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        initVanGogh();
+    static float dpToPx(Resources resources, float value) {
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, resources.getDisplayMetrics());
     }
 
-    private void initVanGogh() {
-        VanGogh vanGogh = new VanGogh.Builder(this)
-                .defaultError(R.drawable.ic_error)
-                .defaultLoading(R.drawable.ic_loading)
-                .enableLog(BuildConfig.DEBUG)
-                .build();
-        VanGogh.setSingleton(vanGogh);
+    static void close(Closeable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (IOException ignore) {
+            }
+        }
+    }
+
+    private Utils() {
+        throw new AssertionError("no instance");
     }
 }

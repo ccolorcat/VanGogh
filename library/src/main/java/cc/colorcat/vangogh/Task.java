@@ -285,14 +285,14 @@ public class Task {
             this.vanGogh = vanGogh;
             this.uri = uri;
             this.stableKey = stableKey;
-            this.fromPolicy = vanGogh.defaultFromPolicy();
-            this.connectTimeOut = vanGogh.connectTimeOut();
-            this.readTimeOut = vanGogh.readTimeOut();
-            this.loadingDrawable = vanGogh.defaultLoading();
-            this.errorDrawable = vanGogh.defaultError();
-            this.options = vanGogh.defaultOptions();
-            this.transformations = new ArrayList<>(vanGogh.transformations());
-            this.fade = vanGogh.fade();
+            this.fromPolicy = vanGogh.defaultFromPolicy;
+            this.connectTimeOut = vanGogh.connectTimeOut;
+            this.readTimeOut = vanGogh.readTimeOut;
+            this.loadingDrawable = vanGogh.defaultLoading;
+            this.errorDrawable = vanGogh.defaultError;
+            this.options = vanGogh.defaultOptions.clone();
+            this.transformations = new ArrayList<>(vanGogh.transformations);
+            this.fade = vanGogh.fade;
         }
 
         Creator(Task task) {
@@ -480,7 +480,7 @@ public class Task {
             if (policy != 0 && !options.hasRotation() && !options.hasSize() && transformations.isEmpty()) {
                 Bitmap bitmap = vanGogh.checkMemoryCache(stableKey);
                 if (bitmap != null) {
-                    if (vanGogh.debug()) {
+                    if (vanGogh.debug) {
                         bitmap = Utils.makeWatermark(bitmap, From.MEMORY.debugColor, options);
                     }
                     target.onLoaded(new BitmapDrawable(vanGogh.resources(), bitmap), From.MEMORY);

@@ -33,6 +33,11 @@ public enum From {
     final int debugColor;
     public final int policy;
 
+    From(@ColorInt int debugColor, int policy) {
+        this.debugColor = debugColor;
+        this.policy = policy;
+    }
+
     private static final int POLICY_MEMORY = 1;
     private static final int POLICY_DISK = 1 << 1;
     private static final int POLICY_NETWORK = 1 << 2;
@@ -41,10 +46,5 @@ public enum From {
         if ((fromPolicy & From.ANY.policy) == 0) {
             throw new IllegalArgumentException("illegal fromPolicy = " + fromPolicy);
         }
-    }
-
-    From(@ColorInt int debugColor, int policy) {
-        this.debugColor = debugColor;
-        this.policy = policy;
     }
 }
