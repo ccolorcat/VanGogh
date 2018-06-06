@@ -194,6 +194,11 @@ public class Task {
             this.maxHeight = maxHeight;
         }
 
+        public void clearMaxSize() {
+            this.maxWidth = 0;
+            this.maxHeight = 0;
+        }
+
         public int maxWidth() {
             return maxWidth;
         }
@@ -424,6 +429,11 @@ public class Task {
             return this;
         }
 
+        public Creator clearMaxSize() {
+            options.clearMaxSize();
+            return this;
+        }
+
         public Creator addTransformation(Transformation transformation) {
             if (transformation == null) {
                 throw new NullPointerException("transformation == null");
@@ -431,6 +441,11 @@ public class Task {
             if (!transformations.contains(transformation)) {
                 transformations.add(transformation);
             }
+            return this;
+        }
+
+        public Creator clearTransformation() {
+            transformations.clear();
             return this;
         }
 
@@ -477,12 +492,9 @@ public class Task {
 
         private void quickFetchOrEnqueue() {
             int policy = fromPolicy & From.MEMORY.policy;
-            if (policy != 0 && !options.hasRotation() && !options.hasSize() && transformations.isEmpty()) {
+            if (policy != 0 && transformations.isEmpty() && !vanGogh.debug) {
                 Bitmap bitmap = vanGogh.checkMemoryCache(stableKey);
                 if (bitmap != null) {
-                    if (vanGogh.debug) {
-                        bitmap = Utils.makeWatermark(bitmap, From.MEMORY.debugColor, options);
-                    }
                     target.onLoaded(new BitmapDrawable(vanGogh.resources(), bitmap), From.MEMORY);
                     callback.onSuccess(bitmap);
                     return;

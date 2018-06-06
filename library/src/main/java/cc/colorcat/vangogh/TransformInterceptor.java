@@ -19,6 +19,7 @@ package cc.colorcat.vangogh;
 import android.graphics.Bitmap;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Author: cxx
@@ -34,7 +35,11 @@ class TransformInterceptor implements Interceptor {
     public Result intercept(Chain chain) throws IOException {
         Task task = chain.task();
         Result result = chain.proceed(task);
-        Bitmap bitmap = Utils.transformResult(result.bitmap(), task.options(), task.transformations());
+        Bitmap bitmap = result.bitmap();
+        List<Transformation> transformations = task.transformations();
+        for (int i = 0, size = transformations.size(); i < size; ++i) {
+            bitmap = transformations.get(i).transform(bitmap);
+        }
         return new Result(bitmap, result.from());
     }
 }

@@ -284,12 +284,14 @@ class Utils {
         return newResult;
     }
 
-    private static Bitmap applyOptions(Bitmap result, Task.Options ops) {
+    static Bitmap applyOptions(Bitmap result, Task.Options ops) {
         Matrix matrix = new Matrix();
         final int width = result.getWidth(), height = result.getHeight();
         if (ops.hasSize()) {
             final int reqWidth = ops.reqWidth(), reqHeight = ops.reqHeight();
-            if (reqWidth != width || reqHeight != height) {
+            if (reqWidth != width && reqHeight != height
+                    || reqWidth == width && reqHeight < height
+                    || reqHeight == height && reqWidth < width) {
                 float scaleX = ((float) reqWidth) / width;
                 float scaleY = ((float) reqHeight) / height;
                 float scale = Math.min(scaleX, scaleY);
