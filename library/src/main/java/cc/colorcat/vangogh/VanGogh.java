@@ -256,7 +256,7 @@ public class VanGogh {
         private Drawable defaultError;
 
         public Builder(Context ctx) {
-            maxRunning = 6;
+            maxRunning = 3;
             retryCount = 1;
             connectTimeOut = 5000;
             readTimeOut = 5000;
@@ -286,11 +286,11 @@ public class VanGogh {
 
         /**
          * @param maxRunning The maximum number of concurrent tasks.
-         * @throws IllegalArgumentException if the maxRunning less than 1.
+         * @throws IllegalArgumentException If the maxRunning less than 1 or greater than 10.
          */
         public Builder maxRunning(int maxRunning) {
-            if (maxRunning < 1) {
-                throw new IllegalArgumentException("maxRunning < 1");
+            if (maxRunning < 1 || maxRunning > 10) {
+                throw new IllegalArgumentException("maxRunning[1, 10] = " + maxRunning);
             }
             this.maxRunning = maxRunning;
             return this;
@@ -467,7 +467,7 @@ public class VanGogh {
                 LogUtils.e(e);
             }
             if (executor == null) {
-                executor = new ThreadPoolExecutor(maxRunning, 10, 60L, TimeUnit.SECONDS,
+                executor = new ThreadPoolExecutor(maxRunning, Math.min(maxRunning + 1, 10), 10L, TimeUnit.SECONDS,
                         new LinkedBlockingDeque<Runnable>(), new ThreadPoolExecutor.DiscardOldestPolicy());
             }
             return new VanGogh(this, new MemoryCache((int) memoryCacheSize), diskCache);
