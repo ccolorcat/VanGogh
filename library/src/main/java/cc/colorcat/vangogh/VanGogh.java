@@ -47,6 +47,7 @@ public class VanGogh {
     private static volatile VanGogh singleton;
 
     private final Dispatcher dispatcher;
+    final boolean mostRecentFirst;
     final int maxRunning;
     final int retryCount;
     final int connectTimeOut;
@@ -115,6 +116,7 @@ public class VanGogh {
     }
 
     private VanGogh(Builder builder, Cache<Bitmap> memoryCache, DiskCache diskCache) {
+        mostRecentFirst = builder.mostRecentFirst;
         maxRunning = builder.maxRunning;
         retryCount = builder.retryCount;
         connectTimeOut = builder.connectTimeOut;
@@ -232,6 +234,7 @@ public class VanGogh {
 
     public static class Builder {
         private ExecutorService executor;
+        private boolean mostRecentFirst;
         private int maxRunning;
         private int retryCount;
         private int connectTimeOut;
@@ -256,6 +259,7 @@ public class VanGogh {
         private Drawable defaultError;
 
         public Builder(Context ctx) {
+            mostRecentFirst = true;
             maxRunning = 3;
             retryCount = 1;
             connectTimeOut = 5000;
@@ -281,6 +285,14 @@ public class VanGogh {
                 throw new NullPointerException("executor == null");
             }
             this.executor = executor;
+            return this;
+        }
+
+        /**
+         * @param mostRecentFirst LIFO if true, otherwise FIFO, the default is true.
+         */
+        public Builder taskPolicy(boolean mostRecentFirst) {
+            this.mostRecentFirst = mostRecentFirst;
             return this;
         }
 

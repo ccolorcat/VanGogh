@@ -82,7 +82,7 @@ class Dispatcher {
 
     private void promoteTask() {
         RealCall call;
-        while (!pause && running.size() < vanGogh.maxRunning && (call = waiting.pollLast()) != null) {
+        while (!pause && running.size() < vanGogh.maxRunning && (call = pollWaiting()) != null) {
             if (running.add(call)) {
                 executor.submit(new AsyncCall(call));
             }
@@ -90,6 +90,10 @@ class Dispatcher {
 //        LogUtils.i("Dispatcher", "waiting tasks = " + tasks.size()
 //                + "\n waiting calls = " + waiting.size()
 //                + "\n running calls = " + running.size());
+    }
+
+    private RealCall pollWaiting() {
+        return vanGogh.mostRecentFirst ? waiting.pollLast() : waiting.pollFirst();
     }
 
     private void completeCall(final RealCall call, final Result result, final Exception cause) {

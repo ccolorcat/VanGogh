@@ -37,6 +37,16 @@ VanGogh.with(getContext()) //如已设置单例或调用过 VanGogh.with(getCont
 
 ```groovy
 	dependencies {
-	        implementation 'com.github.ccolorcat:VanGogh:v1.0.0'
+	        implementation 'com.github.ccolorcat:VanGogh:v1.1.1'
 	}
 ```
+
+## 4. 版本历史
+
+v1.1.1
+
+> 1. 新增 content 资源支持，即 Uri.getScheme() 为 content 的内容。
+> 2. 新增任务加载策略配置，见 VanGogh.Builder#taskPolicy(boolean mostRecentFirst).
+> 3. 新增清除最大尺寸限制（可用于清除全局配置的最大尺寸限制）的方法。
+> 4. 新增清除 Transformation 的方法。
+> 5. 从内存缓存中获取的图片不再进行 reseize 操作。
