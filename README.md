@@ -1,6 +1,6 @@
 # VanGogh
 
-适用 Android 开发，用于加载或缓存图片。
+适用 Android 开发，用于加载或缓存图片，接口设计参考了 [okhttp](https://github.com/square/okhttp) 和 [picasso](https://github.com/square/picasso)
 
 ## 1. 特性
 
