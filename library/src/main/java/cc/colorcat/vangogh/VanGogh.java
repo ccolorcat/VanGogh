@@ -260,7 +260,7 @@ public class VanGogh {
 
         public Builder(Context ctx) {
             mostRecentFirst = true;
-            maxRunning = 3;
+            maxRunning = 4;
             retryCount = 1;
             connectTimeOut = 5000;
             readTimeOut = 5000;
@@ -479,8 +479,14 @@ public class VanGogh {
                 LogUtils.e(e);
             }
             if (executor == null) {
-                executor = new ThreadPoolExecutor(maxRunning, Math.min(maxRunning + 1, 10), 10L, TimeUnit.SECONDS,
-                        new LinkedBlockingDeque<Runnable>(), new ThreadPoolExecutor.DiscardOldestPolicy());
+                executor = new ThreadPoolExecutor(
+                        maxRunning,
+                        Math.min(maxRunning + (maxRunning >> 1), 10),
+                        10L,
+                        TimeUnit.SECONDS,
+                        new LinkedBlockingDeque<Runnable>(),
+                        new ThreadPoolExecutor.DiscardOldestPolicy()
+                );
             }
             return new VanGogh(this, new MemoryCache((int) memoryCacheSize), diskCache);
         }
