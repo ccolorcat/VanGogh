@@ -142,7 +142,7 @@ public class VanGoghActivity extends AppCompatActivity implements LoaderManager.
                     .setText(R.id.tv_description, data.getDescription());
             ImageView icon = helper.get(R.id.iv_icon);
             VanGogh.with(icon.getContext())
-                    .load(data.getPicSmallUrl())
+                    .load(data.getPicBigUrl())
                     .addTransformation(mSquare)
                     .addTransformation((helper.getPosition() & 1) == 0 ? mTrBl : mTlBr)
                     .into(icon);
