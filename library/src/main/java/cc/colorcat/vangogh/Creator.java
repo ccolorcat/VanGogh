@@ -21,6 +21,7 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.DrawableRes;
+import android.widget.ImageView;
 
 /**
  * Author: cxx
@@ -166,6 +167,10 @@ public final class Creator {
     public Creator callback(Callback callback) {
         this.callback = (callback != null ? callback : EmptyCallback.EMPTY);
         return this;
+    }
+
+    public void into(ImageView imageView) {
+
     }
 
     public void into(Target target) {

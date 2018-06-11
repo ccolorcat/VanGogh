@@ -28,24 +28,17 @@ import java.util.List;
  * GitHub: https://github.com/ccolorcat
  */
 @SuppressWarnings("unused")
-public class Task {
-    private final VanGogh vanGogh;
-
+public final class Task {
     private final Uri uri;
     private final String stableKey;
     private final String key;
     private final int fromPolicy;
-
     private final int connectTimeOut;
     private final int readTimeOut;
-
     private final Options options;
     private final List<Transformation> transformations;
-    private final boolean fade;
-    private final Callback callback;
 
     private Task(Creator creator) {
-        vanGogh = creator.vanGogh;
         uri = creator.uri;
         stableKey = creator.stableKey;
         key = creator.key;
@@ -54,8 +47,6 @@ public class Task {
         readTimeOut = creator.readTimeOut;
         options = creator.options;
         transformations = Utils.immutableList(creator.transformations);
-        fade = creator.fade;
-        callback = creator.callback;
     }
 
     public Uri uri() {
@@ -94,38 +85,19 @@ public class Task {
         return new Creator(this);
     }
 
-//    void onPreExecute() {
-//        target.onPrepare(loadingDrawable);
-//    }
-//
-//    void onPostResult(Result result, Exception cause) {
-//        if (result != null) {
-//            Bitmap bitmap = result.bitmap();
-//            target.onLoaded(new VanGoghDrawable(vanGogh.resources(), bitmap, fade), result.from());
-//            callback.onSuccess(bitmap);
-//        } else if (cause != null) {
-//            target.onFailed(errorDrawable, cause);
-//            callback.onError(cause);
-//        }
-//    }
 
-    public static class Options implements Cloneable {
-        public static final int SCALE_TYPE_NO = 0;
-        public static final int SCALE_TYPE_CENTER_IN_SIDE = 1;
-        public static final int SCALE_TYPE_CENTER_CROP = 1 << 1;
-        public static final int SCALE_TYPE_FIT_XY = 1 << 2;
+    public static final class Options implements Cloneable {
+        static final int SCALE_TYPE_NO = 0;
+        static final int SCALE_TYPE_CENTER_INSIDE = 1;
+        static final int SCALE_TYPE_CENTER_CROP = 1 << 1;
+        static final int SCALE_TYPE_FIT_XY = 1 << 2;
 
-
-        private Bitmap.Config config = Bitmap.Config.ARGB_8888;
-        private int targetWidth = 0;
-        private int targetHeight = 0;
-        private boolean hasMaxSize = false;
-        private boolean hasResize = false;
-        private int scaleType = SCALE_TYPE_NO;
-        private boolean centerInside = false;
-        private boolean centerCrop = false;
-        private boolean fitXY = false;
-
+        private Bitmap.Config config;
+        private int targetWidth;
+        private int targetHeight;
+        private boolean hasMaxSize;
+        private boolean hasResize;
+        private int scaleType;
         private float rotationDegrees;
         private boolean hasRotation;
         private float rotationPivotX;
@@ -133,11 +105,17 @@ public class Task {
         private boolean hasRotationPivot;
 
         public Options() {
-
-        }
-
-        public Bitmap.Config config() {
-            return config;
+            config = Bitmap.Config.ARGB_8888;
+            targetWidth = 0;
+            targetHeight = 0;
+            hasMaxSize = false;
+            hasResize = false;
+            scaleType = SCALE_TYPE_NO;
+            rotationDegrees = 0F;
+            hasRotation = false;
+            rotationPivotX = 0F;
+            rotationPivotY = 0F;
+            hasRotationPivot = false;
         }
 
         public void config(Bitmap.Config config) {
@@ -145,6 +123,10 @@ public class Task {
                 throw new NullPointerException("config == null");
             }
             this.config = config;
+        }
+
+        public Bitmap.Config config() {
+            return config;
         }
 
         public void maxSize(int maxWidth, int maxHeight) {
@@ -162,15 +144,21 @@ public class Task {
 
         public void resize(int width, int height) {
             setSize(width, height, true);
+            scaleType = SCALE_TYPE_CENTER_INSIDE;
         }
 
         public void clearResize() {
             hasResize = false;
             tryClearSize();
+            scaleType = SCALE_TYPE_NO;
         }
 
         public boolean hasResize() {
             return hasResize;
+        }
+
+        public boolean hasSize() {
+            return hasMaxSize || hasResize;
         }
 
         public int targetWidth() {
@@ -181,8 +169,16 @@ public class Task {
             return targetHeight;
         }
 
-        public boolean hasSize() {
-            return hasMaxSize || hasResize;
+        public void centerInside() {
+            scaleType = SCALE_TYPE_CENTER_INSIDE;
+        }
+
+        public void centerCrop() {
+            scaleType = SCALE_TYPE_CENTER_CROP;
+        }
+
+        public void fitXY() {
+            scaleType = SCALE_TYPE_FIT_XY;
         }
 
         public int scaleType() {
@@ -196,9 +192,17 @@ public class Task {
             hasRotationPivot = true;
         }
 
+        public boolean hasRotationPivot() {
+            return hasRotationPivot;
+        }
+
         public void rotate(float degrees) {
             rotationDegrees = degrees;
             hasRotation = true;
+        }
+
+        public boolean hasRotation() {
+            return hasRotation;
         }
 
         public float rotationDegrees() {
@@ -211,14 +215,6 @@ public class Task {
 
         public float rotationPivotY() {
             return rotationPivotY;
-        }
-
-        public boolean hasRotation() {
-            return hasRotation;
-        }
-
-        public boolean hasRotationPivot() {
-            return hasRotationPivot;
         }
 
         private void setSize(int width, int height, boolean isResize) {
@@ -249,24 +245,18 @@ public class Task {
         }
     }
 
-    public static class Creator {
-        final VanGogh vanGogh;
 
-        Uri uri;
-        String stableKey;
-        String key;
-        int fromPolicy;
-
-        int connectTimeOut;
-        int readTimeOut;
-
-        Options options;
-        List<Transformation> transformations;
-        boolean fade;
-        Callback callback = EmptyCallback.EMPTY;
+    public final static class Creator {
+        private Uri uri;
+        private String stableKey;
+        private int fromPolicy;
+        private int connectTimeOut;
+        private int readTimeOut;
+        private Options options;
+        private List<Transformation> transformations;
+        private String key;
 
         Creator(VanGogh vanGogh, Uri uri, String stableKey) {
-            this.vanGogh = vanGogh;
             this.uri = uri;
             this.stableKey = stableKey;
             this.fromPolicy = vanGogh.defaultFromPolicy;
@@ -274,11 +264,9 @@ public class Task {
             this.readTimeOut = vanGogh.readTimeOut;
             this.options = vanGogh.defaultOptions.clone();
             this.transformations = new ArrayList<>(vanGogh.transformations);
-            this.fade = vanGogh.fade;
         }
 
         Creator(Task task) {
-            this.vanGogh = task.vanGogh;
             this.uri = task.uri;
             this.stableKey = task.stableKey;
             this.fromPolicy = task.fromPolicy;
@@ -286,8 +274,6 @@ public class Task {
             this.readTimeOut = task.readTimeOut;
             this.options = task.options;
             this.transformations = new ArrayList<>(task.transformations);
-            this.fade = task.fade;
-            this.callback = task.callback;
         }
 
         /**
@@ -309,7 +295,7 @@ public class Task {
             if (timeOut < 0) {
                 throw new IllegalArgumentException("timeOut < 0");
             }
-            this.connectTimeOut = timeOut;
+            connectTimeOut = timeOut;
             return this;
         }
 
@@ -317,7 +303,26 @@ public class Task {
             if (timeOut < 0) {
                 throw new IllegalArgumentException("timeOut < 0");
             }
-            this.readTimeOut = timeOut;
+            readTimeOut = timeOut;
+            return this;
+        }
+
+        public Creator config(Bitmap.Config config) {
+            options.config(config);
+            return this;
+        }
+
+
+        /**
+         * Resize the image to less than the specified size in pixels.
+         */
+        public Creator maxSize(int maxWidth, int maxHeight) {
+            options.maxSize(maxWidth, maxHeight);
+            return this;
+        }
+
+        public Creator clearMaxSize() {
+            options.clearMaxSize();
             return this;
         }
 
@@ -329,16 +334,23 @@ public class Task {
             return this;
         }
 
-        public Creator config(Bitmap.Config config) {
-            options.config(config);
+        public Creator clearResize() {
+            options.clearMaxSize();
             return this;
         }
 
-        /**
-         * Rotate the image by the specified degrees.
-         */
-        public Creator rotate(float degrees) {
-            options.rotate(degrees);
+        public Creator centerInside() {
+            options.centerInside();
+            return this;
+        }
+
+        public Creator centerCrop() {
+            options.centerCrop();
+            return this;
+        }
+
+        public Creator fitXY() {
+            options.fitXY();
             return this;
         }
 
@@ -351,15 +363,10 @@ public class Task {
         }
 
         /**
-         * Resize the image to less than the specified size in pixels.
+         * Rotate the image by the specified degrees.
          */
-        public Creator maxSize(int maxWidth, int maxHeight) {
-            options.maxSize(maxWidth, maxHeight);
-            return this;
-        }
-
-        public Creator clearMaxSize() {
-            options.clearMaxSize();
+        public Creator rotate(float degrees) {
+            options.rotate(degrees);
             return this;
         }
 
@@ -378,63 +385,40 @@ public class Task {
             return this;
         }
 
-        /**
-         * @param fade Enable or disable fade in of images loaded.
-         */
-        public Creator fade(boolean fade) {
-            this.fade = fade;
-            return this;
-        }
-
-        public Creator callback(Callback callback) {
-            this.callback = (callback != null ? callback : EmptyCallback.EMPTY);
-            return this;
-        }
-
         public Task create() {
-            this.key = Utils.createKey(this);
+            this.key = buildKey();
             return new Task(this);
         }
 
-//        public void into(ImageView view) {
-//            if (view == null) {
-//                throw new NullPointerException("view == null");
-//            }
-//            this.into(new ImageViewTarget(view, stableKey));
-//        }
-
-//        public void into(Target target) {
-//            if (target == null) {
-//                throw new NullPointerException("target == null");
-//            }
-//            this.target = target;
-//            quickFetchOrEnqueue();
-//        }
-//
-//        public void fetch() {
-//            quickFetchOrEnqueue();
-//        }
-//
-//        public void fetch(Callback callback) {
-//            this.callback = (callback != null ? callback : EmptyCallback.EMPTY);
-//            quickFetchOrEnqueue();
-//        }
-//
-//        public Task create() {
-//            return new Task(this);
-//        }
-//
-//        private void quickFetchOrEnqueue() {
-//            int policy = fromPolicy & From.MEMORY.policy;
-//            if (policy != 0 && transformations.isEmpty() && !vanGogh.debug) {
-//                Bitmap bitmap = vanGogh.checkMemoryCache(stableKey);
-//                if (bitmap != null) {
-//                    target.onLoaded(new BitmapDrawable(vanGogh.resources(), bitmap), From.MEMORY);
-//                    callback.onSuccess(bitmap);
-//                    return;
-//                }
-//            }
-//            vanGogh.enqueue(create());
-//        }
+        private String buildKey() {
+            StringBuilder builder = new StringBuilder(stableKey);
+            if (options.hasMaxSize()) {
+                builder.append("|maxSize:")
+                        .append(options.targetWidth())
+                        .append('x')
+                        .append(options.targetHeight());
+            } else if (options.hasResize()) {
+                builder.append("|resize:")
+                        .append(options.targetWidth())
+                        .append('x')
+                        .append(options.targetHeight())
+                        .append("scaleType:")
+                        .append(options.scaleType());
+            }
+            if (options.hasRotation()) {
+                builder.append("|rotation:")
+                        .append(options.rotationDegrees());
+                if (options.hasRotationPivot()) {
+                    builder.append("pivot:")
+                            .append(options.rotationPivotX())
+                            .append('x')
+                            .append(options.rotationPivotY());
+                }
+            }
+            for (int i = 0, size = transformations.size(); i < size; ++i) {
+                builder.append('|').append(transformations.get(i).getKey());
+            }
+            return builder.toString();
+        }
     }
 }
