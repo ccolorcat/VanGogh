@@ -264,7 +264,7 @@ class Utils {
     }
 
     private static int calculateInSampleSize(BitmapFactory.Options bo, Task.Options to) {
-        final int maxWidth = to.maxWidth(), maxHeight = to.maxHeight();
+        final int maxWidth = to.targetWidth(), maxHeight = to.targetHeight();
         final int width = bo.outWidth, height = bo.outHeight;
         int inSampleSize = 1;
         while (width / inSampleSize > maxWidth && height / inSampleSize > maxHeight) {
@@ -288,7 +288,7 @@ class Utils {
         Matrix matrix = new Matrix();
         final int width = result.getWidth(), height = result.getHeight();
         if (ops.hasSize()) {
-            final int reqWidth = ops.reqWidth(), reqHeight = ops.reqHeight();
+            final int reqWidth = ops.targetWidth(), reqHeight = ops.targetHeight();
             if (reqWidth != width && reqHeight != height
                     || reqWidth == width && reqHeight < height
                     || reqHeight == height && reqWidth < width) {
@@ -304,6 +304,27 @@ class Utils {
             matrix.postRotate(ops.rotationDegrees());
         }
         return Bitmap.createBitmap(result, 0, 0, width, height, matrix, true);
+    }
+
+    static String createKey(Task.Creator creator) {
+        StringBuilder sb = new StringBuilder(creator.stableKey).append('@');
+        Task.Options op = creator.options;
+        if (op.hasSize()) {
+            sb.append(op.hasMaxSize() ? "maxSize:" : "resize:")
+                    .append(op.targetWidth()).append('x').append(op.targetHeight())
+                    .append("scaleType:").append(op.scaleType());
+
+        }
+        if (op.hasRotation()) {
+            sb.append("rotation:").append(op.rotationDegrees());
+            if (op.hasRotationPivot()) {
+                sb.append("pivot:").append(op.rotationPivotX()).append("x").append(op.rotationPivotY());
+            }
+        }
+        for (int i = 0, size = creator.transformations.size(); i < size; ++i) {
+            sb.append(creator.transformations.get(i).getKey());
+        }
+        return sb.toString();
     }
 
     private Utils() {

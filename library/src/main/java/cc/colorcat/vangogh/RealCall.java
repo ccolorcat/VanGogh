@@ -19,7 +19,7 @@ package cc.colorcat.vangogh;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Future;
 
 /**
  * Author: cxx
@@ -29,19 +29,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 class RealCall implements Call {
     private final VanGogh vanGogh;
     private final Task task;
-    private AtomicInteger count = new AtomicInteger(0);
+    private int count = 0;
 
-    RealCall(VanGogh vanGogh, Task task) {
+    Action<?> action;
+    Future<Result> future;
+
+    RealCall(VanGogh vanGogh, Task task, Action<?> action) {
         this.vanGogh = vanGogh;
         this.task = task;
-    }
-
-    public int getCount() {
-        return count.get();
-    }
-
-    public int getAndIncrement() {
-        return count.getAndIncrement();
+        this.action = action;
     }
 
     @Override
@@ -50,7 +46,26 @@ class RealCall implements Call {
     }
 
     @Override
-    public Result execute() throws IOException {
+    public boolean shouldRetry() {
+        return count <= vanGogh.retryCount;
+    }
+
+    @Override
+    public void cancel() {
+        action = null;
+        if (future != null) {
+            future.cancel(false);
+        }
+    }
+
+    @Override
+    public boolean isCanceled() {
+        return action == null || (future != null && future.isCancelled());
+    }
+
+    @Override
+    public Result call() throws IOException {
+        ++count;
         return getResultWithInterceptor();
     }
 
@@ -71,32 +86,5 @@ class RealCall implements Call {
         interceptors.add(new NetworkInterceptor());
         Interceptor.Chain chain = new RealInterceptorChain(interceptors, 0, task, vanGogh.downloader.clone());
         return chain.proceed(task);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        RealCall realCall = (RealCall) o;
-
-        if (task.fromPolicy() != realCall.task.fromPolicy()) return false;
-        return task.stableKey().equals(realCall.task.stableKey());
-    }
-
-    @Override
-    public int hashCode() {
-        int result = task.stableKey().hashCode();
-        result = 31 * result + task.fromPolicy();
-        return result;
-    }
-
-    @Override
-    public String toString() {
-        return "RealCall{" +
-                "vanGogh=" + vanGogh +
-                ", task=" + task +
-                ", count=" + count +
-                '}';
     }
 }

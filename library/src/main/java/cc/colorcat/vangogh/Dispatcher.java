@@ -69,51 +69,51 @@ class Dispatcher {
 
     void enqueue(Task task) {
         Utils.checkMain();
-        if (!tasks.contains(task) && tasks.offer(task)) {
-            task.onPreExecute();
-            RealCall call = new RealCall(vanGogh, task);
-            synchronized (waiting) {
-                if (!waiting.contains(call) && waiting.offer(call)) {
-                    promoteTask();
-                }
-            }
-        }
+//        if (!tasks.contains(task) && tasks.offer(task)) {
+//            task.onPreExecute();
+//            RealCall call = new RealCall(vanGogh, task);
+//            synchronized (waiting) {
+//                if (!waiting.contains(call) && waiting.offer(call)) {
+//                    promoteTask();
+//                }
+//            }
+//        }
     }
 
     private void promoteTask() {
-        RealCall call;
-        while (!pause && running.size() < vanGogh.maxRunning && (call = pollWaiting()) != null) {
-            if (running.add(call)) {
-                executor.submit(new AsyncCall(call));
-            }
-        }
+//        RealCall call;
+//        while (!pause && running.size() < vanGogh.maxRunning && (call = pollWaiting()) != null) {
+//            if (running.add(call)) {
+//                executor.submit(new AsyncCall(call));
+//            }
+//        }
 //        LogUtils.i("Dispatcher", "waiting tasks = " + tasks.size()
 //                + "\n waiting calls = " + waiting.size()
 //                + "\n running calls = " + running.size());
     }
 
-    private RealCall pollWaiting() {
-        return vanGogh.mostRecentFirst ? waiting.pollLast() : waiting.pollFirst();
-    }
+//    private RealCall pollWaiting() {
+//        return vanGogh.mostRecentFirst ? waiting.pollLast() : waiting.pollFirst();
+//    }
 
     private void completeCall(final RealCall call, final Result result, final Exception cause) {
-        if ((result != null) == (cause != null)) {
-            throw new IllegalStateException("dispatcher reporting error.");
-        }
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                String stableKey = call.task().stableKey();
-                Iterator<Task> iterator = tasks.descendingIterator();
-                while (iterator.hasNext()) {
-                    Task task = iterator.next();
-                    if (stableKey.equals(task.stableKey())) {
-                        task.onPostResult(result, cause);
-                        iterator.remove();
-                    }
-                }
-            }
-        });
+//        if ((result != null) == (cause != null)) {
+//            throw new IllegalStateException("dispatcher reporting error.");
+//        }
+//        handler.post(new Runnable() {
+//            @Override
+//            public void run() {
+//                String stableKey = call.task().stableKey();
+//                Iterator<Task> iterator = tasks.descendingIterator();
+//                while (iterator.hasNext()) {
+//                    Task task = iterator.next();
+//                    if (stableKey.equals(task.stableKey())) {
+//                        task.onPostResult(result, cause);
+//                        iterator.remove();
+//                    }
+//                }
+//            }
+//        });
     }
 
     private class AsyncCall implements Runnable {
@@ -125,27 +125,27 @@ class Dispatcher {
 
         @Override
         public void run() {
-            Result result = null;
-            Exception cause = null;
-            try {
-                result = call.execute();
-            } catch (IOException e) {
-                LogUtils.e(e);
-                cause = e;
-            } catch (IndexOutOfBoundsException e) {
-                LogUtils.e(e);
-                cause = new UnsupportedOperationException("unsupported uri: " + call.task().uri());
-            } finally {
-                synchronized (waiting) {
-                    running.remove(call);
-                    if (result != null || call.getAndIncrement() >= vanGogh.retryCount) {
-                        completeCall(call, result, cause);
-                    } else if (!waiting.contains(call)) {
-                        waiting.offer(call);
-                    }
-                    promoteTask();
-                }
-            }
+//            Result result = null;
+//            Exception cause = null;
+//            try {
+//                result = call.execute();
+//            } catch (IOException e) {
+//                LogUtils.e(e);
+//                cause = e;
+//            } catch (IndexOutOfBoundsException e) {
+//                LogUtils.e(e);
+//                cause = new UnsupportedOperationException("unsupported uri: " + call.task().uri());
+//            } finally {
+//                synchronized (waiting) {
+//                    running.remove(call);
+//                    if (result != null || call.getAndIncrement() >= vanGogh.retryCount) {
+//                        completeCall(call, result, cause);
+//                    } else if (!waiting.contains(call)) {
+//                        waiting.offer(call);
+//                    }
+//                    promoteTask();
+//                }
+//            }
         }
     }
 }

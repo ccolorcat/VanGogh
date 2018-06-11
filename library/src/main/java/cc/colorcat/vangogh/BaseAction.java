@@ -16,22 +16,23 @@
 
 package cc.colorcat.vangogh;
 
-import android.graphics.Bitmap;
+import java.lang.ref.WeakReference;
+import java.util.Objects;
 
 /**
  * Author: cxx
- * Date: 2017-08-08
+ * Date: 2018-06-11
  * GitHub: https://github.com/ccolorcat
  */
-public class SquareTransformation extends BaseTransformation {
+public abstract class BaseAction<T> implements Action<T> {
+    private WeakReference<T> target;
+
+    protected BaseAction(T target) {
+        this.target = new WeakReference<>(target);
+    }
 
     @Override
-    public Bitmap transform(Bitmap source) {
-        final int width = source.getWidth(), height = source.getHeight();
-        if (width == height) return source;
-        final int side = Math.min(width, height);
-        final int left = (width - side) >> 1;
-        final int top = (height - side) >> 1;
-        return Bitmap.createBitmap(source, left, top, side, side);
+    public final T target() {
+        return target.get();
     }
 }

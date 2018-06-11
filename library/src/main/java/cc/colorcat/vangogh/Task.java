@@ -17,12 +17,7 @@
 package cc.colorcat.vangogh;
 
 import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.Build;
-import android.support.annotation.DrawableRes;
-import android.widget.ImageView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,17 +33,13 @@ public class Task {
 
     private final Uri uri;
     private final String stableKey;
+    private final String key;
     private final int fromPolicy;
 
     private final int connectTimeOut;
     private final int readTimeOut;
 
-    private final Target target;
-    private final Drawable loadingDrawable;
-    private final Drawable errorDrawable;
-
     private final Options options;
-
     private final List<Transformation> transformations;
     private final boolean fade;
     private final Callback callback;
@@ -57,12 +48,10 @@ public class Task {
         vanGogh = creator.vanGogh;
         uri = creator.uri;
         stableKey = creator.stableKey;
+        key = creator.key;
         fromPolicy = creator.fromPolicy;
         connectTimeOut = creator.connectTimeOut;
         readTimeOut = creator.readTimeOut;
-        target = creator.target;
-        loadingDrawable = creator.loadingDrawable;
-        errorDrawable = creator.errorDrawable;
         options = creator.options;
         transformations = Utils.immutableList(creator.transformations);
         fade = creator.fade;
@@ -75,6 +64,10 @@ public class Task {
 
     public String stableKey() {
         return stableKey;
+    }
+
+    public String key() {
+        return key;
     }
 
     public int fromPolicy() {
@@ -101,51 +94,43 @@ public class Task {
         return new Creator(this);
     }
 
-    void onPreExecute() {
-        target.onPrepare(loadingDrawable);
-    }
-
-    void onPostResult(Result result, Exception cause) {
-        if (result != null) {
-            Bitmap bitmap = result.bitmap();
-            target.onLoaded(new VanGoghDrawable(vanGogh.resources(), bitmap, fade), result.from());
-            callback.onSuccess(bitmap);
-        } else if (cause != null) {
-            target.onFailed(errorDrawable, cause);
-            callback.onError(cause);
-        }
-    }
-
-    @Override
-    public String toString() {
-        return "Task{" +
-                "vanGogh=" + vanGogh +
-                ", uri=" + uri +
-                ", stableKey='" + stableKey + '\'' +
-                ", fromPolicy=" + fromPolicy +
-                ", connectTimeOut=" + connectTimeOut +
-                ", readTimeOut=" + readTimeOut +
-                ", target=" + target +
-                ", loadingDrawable=" + loadingDrawable +
-                ", errorDrawable=" + errorDrawable +
-                ", options=" + options +
-                ", transformations=" + transformations +
-                ", fade=" + fade +
-                ", callback=" + callback +
-                '}';
-    }
+//    void onPreExecute() {
+//        target.onPrepare(loadingDrawable);
+//    }
+//
+//    void onPostResult(Result result, Exception cause) {
+//        if (result != null) {
+//            Bitmap bitmap = result.bitmap();
+//            target.onLoaded(new VanGoghDrawable(vanGogh.resources(), bitmap, fade), result.from());
+//            callback.onSuccess(bitmap);
+//        } else if (cause != null) {
+//            target.onFailed(errorDrawable, cause);
+//            callback.onError(cause);
+//        }
+//    }
 
     public static class Options implements Cloneable {
+        public static final int SCALE_TYPE_NO = 0;
+        public static final int SCALE_TYPE_CENTER_IN_SIDE = 1;
+        public static final int SCALE_TYPE_CENTER_CROP = 1 << 1;
+        public static final int SCALE_TYPE_FIT_XY = 1 << 2;
+
+
         private Bitmap.Config config = Bitmap.Config.ARGB_8888;
-        private int reqWidth = 0;
-        private int reqHeight = 0;
+        private int targetWidth = 0;
+        private int targetHeight = 0;
+        private boolean hasMaxSize = false;
+        private boolean hasResize = false;
+        private int scaleType = SCALE_TYPE_NO;
+        private boolean centerInside = false;
+        private boolean centerCrop = false;
+        private boolean fitXY = false;
+
         private float rotationDegrees;
         private boolean hasRotation;
         private float rotationPivotX;
         private float rotationPivotY;
         private boolean hasRotationPivot;
-        private int maxWidth = 0;
-        private int maxHeight = 0;
 
         public Options() {
 
@@ -162,49 +147,46 @@ public class Task {
             this.config = config;
         }
 
-        public boolean hasSize() {
-            return reqWidth > 0 && reqHeight > 0;
-        }
-
-        public void resize(int width, int height) {
-            if (width <= 0 || height <= 0) {
-                throw new IllegalArgumentException("width <= 0 || height <= 0");
-            }
-            this.reqWidth = width;
-            this.reqHeight = height;
-        }
-
-        public int reqWidth() {
-            return reqWidth;
-        }
-
-        public int reqHeight() {
-            return reqHeight;
-        }
-
-        public boolean hasMaxSize() {
-            return maxWidth > 0 && maxHeight > 0;
-        }
-
         public void maxSize(int maxWidth, int maxHeight) {
-            if (maxWidth <= 0 || maxHeight <= 0) {
-                throw new IllegalArgumentException("maxWidth <= 0 || maxHeight <= 0");
-            }
-            this.maxWidth = maxWidth;
-            this.maxHeight = maxHeight;
+            setSize(maxWidth, maxHeight, false);
         }
 
         public void clearMaxSize() {
-            this.maxWidth = 0;
-            this.maxHeight = 0;
+            hasMaxSize = false;
+            tryClearSize();
         }
 
-        public int maxWidth() {
-            return maxWidth;
+        public boolean hasMaxSize() {
+            return hasMaxSize;
         }
 
-        public int maxHeight() {
-            return maxHeight;
+        public void resize(int width, int height) {
+            setSize(width, height, true);
+        }
+
+        public void clearResize() {
+            hasResize = false;
+            tryClearSize();
+        }
+
+        public boolean hasResize() {
+            return hasResize;
+        }
+
+        public int targetWidth() {
+            return targetWidth;
+        }
+
+        public int targetHeight() {
+            return targetHeight;
+        }
+
+        public boolean hasSize() {
+            return hasMaxSize || hasResize;
+        }
+
+        public int scaleType() {
+            return scaleType;
         }
 
         public void rotate(float degrees, float pivotX, float pivotY) {
@@ -239,20 +221,21 @@ public class Task {
             return hasRotationPivot;
         }
 
-        @Override
-        public String toString() {
-            return "Options{" +
-                    "config=" + config +
-                    ", reqWidth=" + reqWidth +
-                    ", reqHeight=" + reqHeight +
-                    ", rotationDegrees=" + rotationDegrees +
-                    ", hasRotation=" + hasRotation +
-                    ", rotationPivotX=" + rotationPivotX +
-                    ", rotationPivotY=" + rotationPivotY +
-                    ", hasRotationPivot=" + hasRotationPivot +
-                    ", maxWidth=" + maxWidth +
-                    ", maxHeight=" + maxHeight +
-                    '}';
+        private void setSize(int width, int height, boolean isResize) {
+            if (width <= 0 || height <= 0) {
+                throw new IllegalArgumentException("width <= 0 || height <= 0");
+            }
+            targetWidth = width;
+            targetHeight = height;
+            hasResize = isResize;
+            hasMaxSize = !hasResize;
+        }
+
+        private void tryClearSize() {
+            if (!hasMaxSize && !hasResize) {
+                targetWidth = 0;
+                targetHeight = 0;
+            }
         }
 
         @SuppressWarnings("CloneDoesntCallSuperClone")
@@ -267,24 +250,20 @@ public class Task {
     }
 
     public static class Creator {
-        private final VanGogh vanGogh;
+        final VanGogh vanGogh;
 
-        private Uri uri;
-        private String stableKey;
-        private int fromPolicy;
+        Uri uri;
+        String stableKey;
+        String key;
+        int fromPolicy;
 
-        private int connectTimeOut;
-        private int readTimeOut;
+        int connectTimeOut;
+        int readTimeOut;
 
-        private Target target = EmptyTarget.EMPTY;
-        private Drawable loadingDrawable;
-        private Drawable errorDrawable;
-
-        private Options options;
-
-        private List<Transformation> transformations;
-        private boolean fade;
-        private Callback callback = EmptyCallback.EMPTY;
+        Options options;
+        List<Transformation> transformations;
+        boolean fade;
+        Callback callback = EmptyCallback.EMPTY;
 
         Creator(VanGogh vanGogh, Uri uri, String stableKey) {
             this.vanGogh = vanGogh;
@@ -293,8 +272,6 @@ public class Task {
             this.fromPolicy = vanGogh.defaultFromPolicy;
             this.connectTimeOut = vanGogh.connectTimeOut;
             this.readTimeOut = vanGogh.readTimeOut;
-            this.loadingDrawable = vanGogh.defaultLoading;
-            this.errorDrawable = vanGogh.defaultError;
             this.options = vanGogh.defaultOptions.clone();
             this.transformations = new ArrayList<>(vanGogh.transformations);
             this.fade = vanGogh.fade;
@@ -307,9 +284,6 @@ public class Task {
             this.fromPolicy = task.fromPolicy;
             this.connectTimeOut = task.connectTimeOut;
             this.readTimeOut = task.readTimeOut;
-            this.target = task.target;
-            this.loadingDrawable = task.loadingDrawable;
-            this.errorDrawable = task.errorDrawable;
             this.options = task.options;
             this.transformations = new ArrayList<>(task.transformations);
             this.fade = task.fade;
@@ -344,51 +318,6 @@ public class Task {
                 throw new IllegalArgumentException("timeOut < 0");
             }
             this.readTimeOut = timeOut;
-            return this;
-        }
-
-        /**
-         * The drawable to be used while the image is being loaded.
-         */
-        public Creator loading(@DrawableRes int loadingResId) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                loadingDrawable = vanGogh.resources().getDrawable(loadingResId, vanGogh.theme());
-            } else {
-                loadingDrawable = vanGogh.resources().getDrawable(loadingResId);
-            }
-            return this;
-        }
-
-        /**
-         * The drawable to be used while the image is being loaded.
-         */
-        public Creator loading(Drawable loading) {
-            if (loading == null) throw new NullPointerException("loading == null");
-            loadingDrawable = loading;
-            return this;
-        }
-
-
-        /**
-         * The drawable to be used if the request image could not be loaded.
-         */
-        public Creator error(@DrawableRes int errorResId) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                errorDrawable = vanGogh.resources().getDrawable(errorResId, vanGogh.theme());
-            } else {
-                errorDrawable = vanGogh.resources().getDrawable(errorResId);
-            }
-            return this;
-        }
-
-        /**
-         * The drawable to be used if the request image could not be loaded.
-         */
-        public Creator error(Drawable error) {
-            if (error == null) {
-                throw new NullPointerException("error == null");
-            }
-            errorDrawable = error;
             return this;
         }
 
@@ -462,45 +391,50 @@ public class Task {
             return this;
         }
 
-        public void into(ImageView view) {
-            if (view == null) {
-                throw new NullPointerException("view == null");
-            }
-            this.into(new ImageViewTarget(view, stableKey));
-        }
-
-        public void into(Target target) {
-            if (target == null) {
-                throw new NullPointerException("target == null");
-            }
-            this.target = target;
-            quickFetchOrEnqueue();
-        }
-
-        public void fetch() {
-            quickFetchOrEnqueue();
-        }
-
-        public void fetch(Callback callback) {
-            this.callback = (callback != null ? callback : EmptyCallback.EMPTY);
-            quickFetchOrEnqueue();
-        }
-
         public Task create() {
+            this.key = Utils.createKey(this);
             return new Task(this);
         }
 
-        private void quickFetchOrEnqueue() {
-            int policy = fromPolicy & From.MEMORY.policy;
-            if (policy != 0 && transformations.isEmpty() && !vanGogh.debug) {
-                Bitmap bitmap = vanGogh.checkMemoryCache(stableKey);
-                if (bitmap != null) {
-                    target.onLoaded(new BitmapDrawable(vanGogh.resources(), bitmap), From.MEMORY);
-                    callback.onSuccess(bitmap);
-                    return;
-                }
-            }
-            vanGogh.enqueue(create());
-        }
+//        public void into(ImageView view) {
+//            if (view == null) {
+//                throw new NullPointerException("view == null");
+//            }
+//            this.into(new ImageViewTarget(view, stableKey));
+//        }
+
+//        public void into(Target target) {
+//            if (target == null) {
+//                throw new NullPointerException("target == null");
+//            }
+//            this.target = target;
+//            quickFetchOrEnqueue();
+//        }
+//
+//        public void fetch() {
+//            quickFetchOrEnqueue();
+//        }
+//
+//        public void fetch(Callback callback) {
+//            this.callback = (callback != null ? callback : EmptyCallback.EMPTY);
+//            quickFetchOrEnqueue();
+//        }
+//
+//        public Task create() {
+//            return new Task(this);
+//        }
+//
+//        private void quickFetchOrEnqueue() {
+//            int policy = fromPolicy & From.MEMORY.policy;
+//            if (policy != 0 && transformations.isEmpty() && !vanGogh.debug) {
+//                Bitmap bitmap = vanGogh.checkMemoryCache(stableKey);
+//                if (bitmap != null) {
+//                    target.onLoaded(new BitmapDrawable(vanGogh.resources(), bitmap), From.MEMORY);
+//                    callback.onSuccess(bitmap);
+//                    return;
+//                }
+//            }
+//            vanGogh.enqueue(create());
+//        }
     }
 }

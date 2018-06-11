@@ -16,16 +16,19 @@
 
 package cc.colorcat.vangogh;
 
-import java.io.IOException;
+import java.util.concurrent.Callable;
 
 /**
  * Author: cxx
  * Date: 2017-07-11
  * GitHub: https://github.com/ccolorcat
  */
-public interface Call {
-
+public interface Call extends Callable<Result> {
     Task task();
 
-    Result execute() throws IOException;
+    boolean shouldRetry();
+
+    void cancel();
+
+    boolean isCanceled();
 }

@@ -24,7 +24,9 @@ import android.graphics.Bitmap;
  * GitHub: https://github.com/ccolorcat
  */
 public interface Action<T> {
-    T getTarget();
+    T target();
+
+    void prepare();
 
     void complete(Bitmap result, From from);
 

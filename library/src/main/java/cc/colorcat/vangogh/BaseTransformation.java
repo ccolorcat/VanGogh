@@ -20,18 +20,18 @@ import android.graphics.Bitmap;
 
 /**
  * Author: cxx
- * Date: 2017-08-08
+ * Date: 2018-06-11
  * GitHub: https://github.com/ccolorcat
  */
-public class SquareTransformation extends BaseTransformation {
-
+public class BaseTransformation implements Transformation {
     @Override
     public Bitmap transform(Bitmap source) {
-        final int width = source.getWidth(), height = source.getHeight();
-        if (width == height) return source;
-        final int side = Math.min(width, height);
-        final int left = (width - side) >> 1;
-        final int top = (height - side) >> 1;
-        return Bitmap.createBitmap(source, left, top, side, side);
+        return source;
+    }
+
+    @Override
+    public String getKey() {
+        Class clazz = getClass();
+        return clazz.getSimpleName() + clazz.getPackage().getName();
     }
 }
