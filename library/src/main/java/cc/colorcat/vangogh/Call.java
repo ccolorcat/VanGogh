@@ -16,14 +16,12 @@
 
 package cc.colorcat.vangogh;
 
-import java.util.concurrent.Callable;
-
 /**
  * Author: cxx
  * Date: 2017-07-11
  * GitHub: https://github.com/ccolorcat
  */
-public interface Call extends Callable<Result> {
+public interface Call extends Runnable {
     Task task();
 
     boolean shouldRetry();

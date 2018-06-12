@@ -306,7 +306,7 @@ class Utils {
         return Bitmap.createBitmap(result, 0, 0, width, height, matrix, true);
     }
 
-//    static String createKey(Task.Creator creator) {
+    //    static String createKey(Task.Creator creator) {
 //        StringBuilder sb = new StringBuilder(creator.stableKey).append('@');
 //        Task.Options op = creator.options;
 //        if (op.hasSize()) {
@@ -331,6 +331,10 @@ class Utils {
         if (object == null) {
             throw new NullPointerException(msg);
         }
+    }
+
+    static <T> T nullElse(T value, T defaultValue) {
+        return value != null ? value : defaultValue;
     }
 
     private Utils() {

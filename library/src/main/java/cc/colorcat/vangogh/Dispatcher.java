@@ -19,12 +19,10 @@ package cc.colorcat.vangogh;
 import android.os.Handler;
 import android.os.Looper;
 
-import java.io.IOException;
 import java.util.Deque;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Set;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -36,9 +34,10 @@ class Dispatcher {
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private final ExecutorService executor;
-    private final Deque<Task> tasks = new LinkedList<>();
+    //    private final Deque<Task> tasks = new LinkedList<>();
     private final Deque<RealCall> waiting = new LinkedList<>();
-    private final Set<RealCall> running = new HashSet<>();
+    //    private final Set<RealCall> running = new HashSet<>();
+    private final Map<String, RealCall> running = new WeakHashMap();
 
     private final VanGogh vanGogh;
     private volatile boolean pause = false;
@@ -46,6 +45,43 @@ class Dispatcher {
     Dispatcher(VanGogh vanGogh, ExecutorService executor) {
         this.vanGogh = vanGogh;
         this.executor = executor;
+
+    }
+
+    void dispatchSubmit(RealCall call) {
+
+    }
+
+    void dispatchCancel(RealCall call) {
+
+    }
+
+    void dispatchComplete(RealCall call) {
+
+    }
+
+    void performSubmit(RealCall call) {
+        if (waiting.offer(call)) {
+            promoteCall();
+        }
+    }
+
+    void performCancel(RealCall call) {
+        waiting.remove(call);
+        if (running.remove(call.task().stableKey()) != null) {
+            promoteCall();
+        }
+    }
+
+    private void promoteCall() {
+        RealCall call;
+        while (!pause && running.size() < vanGogh.maxRunning && (call = pollWaiting()) != null) {
+            call.future = executor.submit(call);
+        }
+    }
+
+    private RealCall pollWaiting() {
+        return vanGogh.mostRecentFirst ? waiting.pollLast() : waiting.pollFirst();
     }
 
     void pause() {
@@ -63,7 +99,7 @@ class Dispatcher {
         Utils.checkMain();
         synchronized (waiting) {
             waiting.clear();
-            tasks.clear();
+//            tasks.clear();
         }
     }
 

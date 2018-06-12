@@ -33,6 +33,8 @@ class RealCall implements Call {
 
     Action<?> action;
     Future<Result> future;
+    Result result;
+    Exception cause;
 
     RealCall(VanGogh vanGogh, Task task, Action<?> action) {
         this.vanGogh = vanGogh;
@@ -63,13 +65,24 @@ class RealCall implements Call {
         return action == null || (future != null && future.isCancelled());
     }
 
+//    @Override
+//    public Result call() throws IOException {
+//        ++count;
+//        return getResultWithInterceptor();
+//    }
+
+
     @Override
-    public Result call() throws IOException {
-        ++count;
-        return getResultWithInterceptor();
+    public void run() {
+        try {
+            result = getResultWithInterceptor();
+        } catch (IOException e) {
+            cause = e;
+        }
     }
 
     private Result getResultWithInterceptor() throws IOException {
+        ++count;
         List<Interceptor> users = vanGogh.interceptors;
         List<Interceptor> interceptors = new ArrayList<>(users.size() + 7);
         interceptors.addAll(users);

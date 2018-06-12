@@ -21,6 +21,7 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.DrawableRes;
+import android.support.annotation.NonNull;
 import android.widget.ImageView;
 
 /**
@@ -30,37 +31,93 @@ import android.widget.ImageView;
  */
 public final class Creator {
     private final VanGogh vanGogh;
-    private final Task.Creator creator;
-
-    private Target target;
-    private Drawable loadingDrawable;
-    private Drawable errorDrawable;
-
+    private final Task.Creator taskCreator;
+    private Drawable loading;
+    private Drawable error;
     private boolean fade;
-    private Callback callback;
+    private boolean debug;
 
     Creator(VanGogh vanGogh, Uri uri, String stableKey) {
         this.vanGogh = vanGogh;
-        this.creator = new Task.Creator(vanGogh, uri, stableKey);
-        this.target = EmptyTarget.EMPTY;
-        this.loadingDrawable = vanGogh.defaultLoading;
-        this.errorDrawable = vanGogh.defaultError;
+        this.taskCreator = new Task.Creator(vanGogh, uri, stableKey);
+        this.loading = vanGogh.defaultLoading;
+        this.error = vanGogh.defaultError;
         this.fade = vanGogh.fade;
-        this.callback = EmptyCallback.EMPTY;
+        this.debug = vanGogh.debug;
     }
 
     public Creator from(int fromPolicy) {
-        creator.from(fromPolicy);
+        taskCreator.from(fromPolicy);
         return this;
     }
 
     public Creator connectTimeOut(int timeOut) {
-        creator.connectTimeOut(timeOut);
+        taskCreator.connectTimeOut(timeOut);
         return this;
     }
 
     public Creator readTimeOut(int timeOut) {
-        creator.readTimeOut(timeOut);
+        taskCreator.readTimeOut(timeOut);
+        return this;
+    }
+
+    public Creator config(@NonNull Bitmap.Config config) {
+        taskCreator.config(config);
+        return this;
+    }
+
+    public Creator maxSize(int maxWidth, int maxHeight) {
+        taskCreator.maxSize(maxWidth, maxHeight);
+        return this;
+    }
+
+    public Creator clearMaxSize() {
+        taskCreator.clearMaxSize();
+        return this;
+    }
+
+    public Creator resize(int width, int height) {
+        taskCreator.resize(width, height);
+        return this;
+    }
+
+    public Creator clearResize() {
+        taskCreator.clearResize();
+        return this;
+    }
+
+    public Creator centerInside() {
+        taskCreator.centerInside();
+        return this;
+    }
+
+    public Creator centerCrop() {
+        taskCreator.centerCrop();
+        return this;
+    }
+
+    public Creator fitXY() {
+        taskCreator.fitXY();
+        return this;
+    }
+
+    public Creator rotate(float degrees, float pivotX, float pivotY) {
+        taskCreator.rotate(degrees, pivotX, pivotY);
+        return this;
+    }
+
+    public Creator rotate(float degrees) {
+        taskCreator.rotate(degrees);
+        return this;
+    }
+
+    public Creator addTransformation(Transformation transformation) {
+        taskCreator.addTransformation(transformation);
+        return this;
+    }
+
+    public Creator clearTransformation() {
+        taskCreator.clearTransformation();
         return this;
     }
 
@@ -69,9 +126,9 @@ public final class Creator {
      */
     public Creator loading(@DrawableRes int loadingResId) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            this.loadingDrawable = vanGogh.context.getDrawable(loadingResId);
+            this.loading = vanGogh.context.getDrawable(loadingResId);
         } else {
-            this.loadingDrawable = vanGogh.resources().getDrawable(loadingResId);
+            this.loading = vanGogh.resources().getDrawable(loadingResId);
         }
         return this;
     }
@@ -80,7 +137,7 @@ public final class Creator {
      * The drawable to be used while the image is being loaded.
      */
     public Creator loading(Drawable loading) {
-        this.loadingDrawable = loading;
+        this.loading = loading;
         return this;
     }
 
@@ -89,9 +146,9 @@ public final class Creator {
      */
     public Creator error(@DrawableRes int errorResId) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            this.errorDrawable = vanGogh.context.getDrawable(errorResId);
+            this.error = vanGogh.context.getDrawable(errorResId);
         } else {
-            this.errorDrawable = vanGogh.resources().getDrawable(errorResId);
+            this.error = vanGogh.resources().getDrawable(errorResId);
         }
         return this;
     }
@@ -100,59 +157,7 @@ public final class Creator {
      * The drawable to be used if the request image could not be loaded.
      */
     public Creator error(Drawable error) {
-        this.errorDrawable = error;
-        return this;
-    }
-
-    /**
-     * Resize the image to the specified size in pixels.
-     */
-    public Creator resize(int width, int height) {
-        creator.resize(width, height);
-        return this;
-    }
-
-    public Creator config(Bitmap.Config config) {
-        creator.config(config);
-        return this;
-    }
-
-    /**
-     * Rotate the image by the specified degrees.
-     */
-    public Creator rotate(float degrees) {
-        creator.rotate(degrees);
-        return this;
-    }
-
-    /**
-     * Rotate the image by the specified degrees around a pivot point.
-     */
-    public Creator rotate(float degrees, float pivotX, float pivotY) {
-        creator.rotate(degrees, pivotX, pivotY);
-        return this;
-    }
-
-    /**
-     * Resize the image to less than the specified size in pixels.
-     */
-    public Creator maxSize(int maxWidth, int maxHeight) {
-        creator.maxSize(maxWidth, maxHeight);
-        return this;
-    }
-
-    public Creator clearMaxSize() {
-        creator.clearMaxSize();
-        return this;
-    }
-
-    public Creator addTransformation(Transformation transformation) {
-        creator.addTransformation(transformation);
-        return this;
-    }
-
-    public Creator clearTransformation() {
-        creator.clearTransformation();
+        this.error = error;
         return this;
     }
 
@@ -164,16 +169,31 @@ public final class Creator {
         return this;
     }
 
-    public Creator callback(Callback callback) {
-        this.callback = (callback != null ? callback : EmptyCallback.EMPTY);
+    public Creator debug(boolean debug) {
+        this.debug = debug;
         return this;
     }
 
-    public void into(ImageView imageView) {
-
+    public void into(ImageView target, Callback callback) {
+        if (target == null) {
+            throw new NullPointerException("target == null");
+        }
+        if (taskCreator.uri == Uri.EMPTY) {
+            vanGogh.cancelExistingCall(target);
+            target.setImageDrawable(error);
+            return;
+        }
+        Task task = taskCreator.create();
+        Action<ImageView> action = new ImageViewAction(target, loading, error, fade, debug, Utils.nullElse(callback, EmptyCallback.EMPTY));
+        Bitmap bitmap = vanGogh.obtainFromMemoryCache(task.key());
+        if (bitmap != null) {
+            action.complete(bitmap, From.MEMORY);
+            return;
+        }
+        vanGogh.enqueueAndSubmit(new RealCall(vanGogh, task, action));
     }
 
-    public void into(Target target) {
-
-    }
+//    public void into(Target target) {
+//
+//    }
 }

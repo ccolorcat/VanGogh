@@ -17,18 +17,39 @@
 package cc.colorcat.vangogh;
 
 import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
+
+import java.lang.ref.WeakReference;
 
 /**
  * Author: cxx
  * Date: 2018-06-11
  * GitHub: https://github.com/ccolorcat
  */
-public interface Action<T> {
-    T target();
+abstract class Action<T> {
+    private final WeakReference<T> target;
+    protected final Drawable loadingDrawable;
+    final Drawable errorDrawable;
+    final boolean fade;
+    final boolean debug;
+    final Callback callback;
 
-    void prepare();
+    Action(T target, Drawable loading, Drawable error, boolean fade, boolean debug, Callback callback) {
+        this.target = new WeakReference<>(target);
+        this.loadingDrawable = loading;
+        this.errorDrawable = error;
+        this.fade = fade;
+        this.debug = debug;
+        this.callback = callback;
+    }
 
-    void complete(Bitmap result, From from);
+    T target() {
+        return target.get();
+    }
 
-    void error(Exception e);
+    abstract void prepare();
+
+    abstract void complete(Bitmap result, From from);
+
+    abstract void error(Exception e);
 }

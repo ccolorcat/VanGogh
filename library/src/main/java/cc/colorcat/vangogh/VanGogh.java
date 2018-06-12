@@ -25,6 +25,7 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.DrawableRes;
+import android.support.annotation.Nullable;
 import android.text.TextUtils;
 
 import java.io.File;
@@ -48,7 +49,7 @@ public class VanGogh {
     @SuppressLint("StaticFieldLeak")
     private static volatile VanGogh singleton;
 
-    private Map<Object, Action> targetToAction = new WeakHashMap<>();
+    private Map<Object, RealCall> targetToCall = new WeakHashMap<>();
 
     private final Dispatcher dispatcher;
     final boolean mostRecentFirst;
@@ -138,6 +139,27 @@ public class VanGogh {
         this.memoryCache = memoryCache;
         this.diskCache = diskCache;
         this.dispatcher = new Dispatcher(this, builder.executor);
+    }
+
+    void cancelExistingCall(Object target) {
+        RealCall call = targetToCall.remove(target);
+        if (call != null) {
+            call.cancel();
+            dispatcher.dispatchCancel(call);
+        }
+    }
+
+    void enqueueAndSubmit(RealCall call) {
+        Object target = call.action.target();
+        if (target != null && targetToCall.get(target) != call) {
+            cancelExistingCall(target);
+            targetToCall.put(target, call);
+        }
+        submit(call);
+    }
+
+    void submit(RealCall call) {
+        dispatcher.dispatchSubmit(call);
     }
 
     /**
@@ -231,8 +253,9 @@ public class VanGogh {
         return context.getTheme();
     }
 
-    Bitmap checkMemoryCache(String stableKey) {
-        return memoryCache.get(stableKey);
+    @Nullable
+    Bitmap obtainFromMemoryCache(String key) {
+        return memoryCache.get(key);
     }
 
 

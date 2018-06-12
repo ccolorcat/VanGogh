@@ -247,14 +247,14 @@ public final class Task {
 
 
     public final static class Creator {
-        private Uri uri;
-        private String stableKey;
-        private int fromPolicy;
-        private int connectTimeOut;
-        private int readTimeOut;
-        private Options options;
-        private List<Transformation> transformations;
-        private String key;
+        Uri uri;
+        String stableKey;
+        int fromPolicy;
+        int connectTimeOut;
+        int readTimeOut;
+        Options options;
+        List<Transformation> transformations;
+        String key;
 
         Creator(VanGogh vanGogh, Uri uri, String stableKey) {
             this.uri = uri;
