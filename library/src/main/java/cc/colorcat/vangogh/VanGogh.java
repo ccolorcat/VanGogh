@@ -24,6 +24,9 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
@@ -31,6 +34,7 @@ import android.text.TextUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -46,12 +50,16 @@ import java.util.concurrent.TimeUnit;
  */
 @SuppressWarnings("unused")
 public class VanGogh {
+    static final int DELIVER_SUCCESS_SINGLE = 0x12;
+    static final int DELIVER_SUCCESS_MULTIPLE = 0x13;
+    static final int DELIVER_FAILED = 0x14;
+
     @SuppressLint("StaticFieldLeak")
     private static volatile VanGogh singleton;
 
     private Map<Object, RealCall> targetToCall = new WeakHashMap<>();
 
-    private final Dispatcher dispatcher;
+    final Dispatcher dispatcher;
     final boolean mostRecentFirst;
     final int maxRunning;
     final int retryCount;
@@ -138,7 +146,7 @@ public class VanGogh {
         fade = builder.fade;
         this.memoryCache = memoryCache;
         this.diskCache = diskCache;
-        this.dispatcher = new Dispatcher(this, builder.executor);
+        this.dispatcher = new Dispatcher(this, builder.executor, new DeliverHandler(targetToCall));
     }
 
     void cancelExistingCall(Object target) {
@@ -170,7 +178,7 @@ public class VanGogh {
      * @see #load(File)
      * @see #load(int)
      */
-    public Task.Creator load(String uri) {
+    public Creator load(String uri) {
         return this.load(TextUtils.isEmpty(uri) ? Uri.EMPTY : Uri.parse(uri));
     }
 
@@ -181,7 +189,7 @@ public class VanGogh {
      * @see #load(File)
      * @see #load(String)
      */
-    public Task.Creator load(@DrawableRes int resId) {
+    public Creator load(@DrawableRes int resId) {
         return this.load(VanGogh.toUri(resources(), resId));
     }
 
@@ -192,7 +200,7 @@ public class VanGogh {
      * @see #load(String)
      * @see #load(int)
      */
-    public Task.Creator load(File file) {
+    public Creator load(File file) {
         return this.load(file == null ? Uri.EMPTY : Uri.fromFile(file));
     }
 
@@ -203,10 +211,10 @@ public class VanGogh {
      * @see #load(File)
      * @see #load(int)
      */
-    public Task.Creator load(Uri uri) {
+    public Creator load(Uri uri) {
         Uri u = (uri == null ? Uri.EMPTY : uri);
         String stableKey = Utils.md5(u.toString());
-        return new Task.Creator(this, u, stableKey);
+        return new Creator(this, u, stableKey);
     }
 
     /**
@@ -242,7 +250,7 @@ public class VanGogh {
     }
 
     void enqueue(Task task) {
-        dispatcher.enqueue(task);
+//        dispatcher.enqueue(task);
     }
 
     Resources resources() {
@@ -256,6 +264,50 @@ public class VanGogh {
     @Nullable
     Bitmap obtainFromMemoryCache(String key) {
         return memoryCache.get(key);
+    }
+
+
+    static class DeliverHandler extends Handler {
+        private final Map<Object, RealCall> targetToCall;
+
+        DeliverHandler(Map<Object, RealCall> targetToCall) {
+            super(Looper.getMainLooper());
+            this.targetToCall = targetToCall;
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            RealCall obj = (RealCall) msg.obj;
+            final String key = obj.task().key();
+            final Result result = obj.result;
+            switch (msg.what) {
+                case DELIVER_SUCCESS_SINGLE:
+                    RealCall call = targetToCall.remove(key);
+                    if (call != null) {
+                        call.action.complete(result.bitmap(), result.from());
+                    }
+                    break;
+                case DELIVER_SUCCESS_MULTIPLE:
+                    Iterator<Map.Entry<Object, RealCall>> iterator = targetToCall.entrySet().iterator();
+                    while (iterator.hasNext()) {
+                        Map.Entry<Object, RealCall> entry = iterator.next();
+                        RealCall value = entry.getValue();
+                        if (key.equals(value.task().key())) {
+                            value.action.complete(result.bitmap(), result.from());
+                            iterator.remove();
+                        }
+                    }
+                    break;
+                case DELIVER_FAILED:
+                    RealCall failed = targetToCall.remove(key);
+                    if (failed != null) {
+                        failed.action.error(obj.cause);
+                    }
+                    break;
+                default:
+                    throw new IllegalArgumentException("received illegal code " + msg.what);
+            }
+        }
     }
 
 

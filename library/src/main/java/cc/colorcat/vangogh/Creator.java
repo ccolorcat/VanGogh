@@ -174,6 +174,10 @@ public final class Creator {
         return this;
     }
 
+    public void into(ImageView target) {
+        this.into(target, null);
+    }
+
     public void into(ImageView target, Callback callback) {
         if (target == null) {
             throw new NullPointerException("target == null");

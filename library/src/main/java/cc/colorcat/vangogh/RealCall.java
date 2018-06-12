@@ -32,7 +32,7 @@ class RealCall implements Call {
     private int count = 0;
 
     Action<?> action;
-    Future<Result> future;
+    Future<?> future;
     Result result;
     Exception cause;
 
@@ -65,19 +65,25 @@ class RealCall implements Call {
         return action == null || (future != null && future.isCancelled());
     }
 
-//    @Override
-//    public Result call() throws IOException {
-//        ++count;
-//        return getResultWithInterceptor();
-//    }
-
-
     @Override
     public void run() {
         try {
             result = getResultWithInterceptor();
         } catch (IOException e) {
             cause = e;
+            LogUtils.e(e);
+        } catch (IndexOutOfBoundsException e) {
+            cause = new UnsupportedOperationException("unsupported uri: " + task.uri());
+            LogUtils.e(e);
+        } catch (Exception e) {
+            cause = e;
+            LogUtils.e(e);
+        } finally {
+            if (result != null) {
+                vanGogh.dispatcher.dispatchSuccess(this);
+            } else {
+                vanGogh.dispatcher.dispatchFailed(this);
+            }
         }
     }
 
