@@ -57,7 +57,7 @@ public class VanGogh {
     @SuppressLint("StaticFieldLeak")
     private static volatile VanGogh singleton;
 
-    private Map<Object, RealCall> targetToCall = new WeakHashMap<>();
+    private Map<Object, Action> targetToAction = new WeakHashMap<>();
 
     final Dispatcher dispatcher;
     final boolean mostRecentFirst;
@@ -75,7 +75,7 @@ public class VanGogh {
 
     final Task.Options defaultOptions;
     final Context context;
-    final boolean debug;
+    final boolean debugColor;
 
     final List<Transformation> transformations;
 
@@ -139,39 +139,39 @@ public class VanGogh {
         defaultFromPolicy = builder.defaultFromPolicy;
         defaultOptions = builder.defaultOptions;
         context = builder.context;
-        debug = builder.debug;
+        debugColor = builder.debug;
         transformations = Utils.immutableList(builder.transformations);
         defaultLoading = builder.defaultLoading;
         defaultError = builder.defaultError;
         fade = builder.fade;
         this.memoryCache = memoryCache;
         this.diskCache = diskCache;
-        this.dispatcher = new Dispatcher(this, builder.executor, new DeliverHandler(targetToCall));
+        this.dispatcher = new Dispatcher(this, builder.executor, null); // todo
     }
 
     void cancelExistingCall(Object target) {
-        RealCall call = targetToCall.remove(target);
-        if (call != null) {
-            call.cancel();
-            dispatcher.dispatchCancel(call);
-        }
+//        Call call = targetToAction.remove(target);
+//        if (call != null) {
+//            call.cancel();
+//            dispatcher.dispatchCancel(call);
+//        }
     }
 
-    void enqueueAndSubmit(RealCall call) {
-        Object target = call.action.target();
-        if (target != null && targetToCall.get(target) != call) {
-            cancelExistingCall(target);
-            targetToCall.put(target, call);
-        }
-        submit(call);
+    void enqueueAndSubmit(Action action) {
+//        Object target = call.action.target();
+//        if (target != null && targetToAction.get(target) != call) {
+//            cancelExistingCall(target);
+//            targetToAction.put(target, call);
+//        }
+//        submit(call);
     }
 
-    void submit(RealCall call) {
-        dispatcher.dispatchSubmit(call);
+    void submit(Call call) {
+//        dispatcher.dispatchSubmit(call);
     }
 
     /**
-     * Create a {@link Task.Creator} using the specified path.
+     * Create a {@link Creator} using the specified path.
      *
      * @param uri May be a remote URL, file or android resource.
      * @see #load(Uri)
@@ -183,7 +183,7 @@ public class VanGogh {
     }
 
     /**
-     * Create a {@link Task.Creator} using the specified drawable resource ID.
+     * Create a {@link Creator} using the specified drawable resource ID.
      *
      * @see #load(Uri)
      * @see #load(File)
@@ -194,7 +194,7 @@ public class VanGogh {
     }
 
     /**
-     * Create a {@link Task.Creator} using the specified image file.
+     * Create a {@link Creator} using the specified image file.
      *
      * @see #load(Uri)
      * @see #load(String)
@@ -205,7 +205,7 @@ public class VanGogh {
     }
 
     /**
-     * Create a {@link Task.Creator} using the specified uri.
+     * Create a {@link Creator} using the specified uri.
      *
      * @see #load(String)
      * @see #load(File)
@@ -268,45 +268,45 @@ public class VanGogh {
 
 
     static class DeliverHandler extends Handler {
-        private final Map<Object, RealCall> targetToCall;
+        private final Map<Object, Call> targetToCall;
 
-        DeliverHandler(Map<Object, RealCall> targetToCall) {
+        DeliverHandler(Map<Object, Call> targetToCall) {
             super(Looper.getMainLooper());
             this.targetToCall = targetToCall;
         }
 
         @Override
         public void handleMessage(Message msg) {
-            RealCall obj = (RealCall) msg.obj;
-            final String key = obj.task().key();
-            final Result result = obj.result;
-            switch (msg.what) {
-                case DELIVER_SUCCESS_SINGLE:
-                    RealCall call = targetToCall.remove(key);
-                    if (call != null) {
-                        call.action.complete(result.bitmap(), result.from());
-                    }
-                    break;
-                case DELIVER_SUCCESS_MULTIPLE:
-                    Iterator<Map.Entry<Object, RealCall>> iterator = targetToCall.entrySet().iterator();
-                    while (iterator.hasNext()) {
-                        Map.Entry<Object, RealCall> entry = iterator.next();
-                        RealCall value = entry.getValue();
-                        if (key.equals(value.task().key())) {
-                            value.action.complete(result.bitmap(), result.from());
-                            iterator.remove();
-                        }
-                    }
-                    break;
-                case DELIVER_FAILED:
-                    RealCall failed = targetToCall.remove(key);
-                    if (failed != null) {
-                        failed.action.error(obj.cause);
-                    }
-                    break;
-                default:
-                    throw new IllegalArgumentException("received illegal code " + msg.what);
-            }
+//            Call obj = (Call) msg.obj;
+//            final String key = obj.task().taskKey();
+//            final Result result = obj.result;
+//            switch (msg.what) {
+//                case DELIVER_SUCCESS_SINGLE:
+//                    Call call = targetToCall.remove(obj.action.target());
+//                    if (call != null) {
+//                        call.action.complete(result.bitmap(), result.from());
+//                    }
+//                    break;
+//                case DELIVER_SUCCESS_MULTIPLE:
+//                    Iterator<Map.Entry<Object, Call>> iterator = targetToCall.entrySet().iterator();
+//                    while (iterator.hasNext()) {
+//                        Map.Entry<Object, Call> entry = iterator.next();
+//                        Call value = entry.getValue();
+//                        if (key.equals(value.task().taskKey())) {
+//                            value.action.complete(result.bitmap(), result.from());
+//                            iterator.remove();
+//                        }
+//                    }
+//                    break;
+//                case DELIVER_FAILED:
+//                    Call failed = targetToCall.remove(key);
+//                    if (failed != null) {
+//                        failed.action.error(obj.cause);
+//                    }
+//                    break;
+//                default:
+//                    throw new IllegalArgumentException("received illegal code " + msg.what);
+//            }
         }
     }
 

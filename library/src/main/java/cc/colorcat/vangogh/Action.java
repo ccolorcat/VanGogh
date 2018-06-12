@@ -28,23 +28,39 @@ import java.lang.ref.WeakReference;
  */
 abstract class Action<T> {
     private final WeakReference<T> target;
-    protected final Drawable loadingDrawable;
-    final Drawable errorDrawable;
+    final Task task;
+    final Drawable loading;
+    final Drawable error;
     final boolean fade;
-    final boolean debug;
+    final boolean debugColor;
     final Callback callback;
 
-    Action(T target, Drawable loading, Drawable error, boolean fade, boolean debug, Callback callback) {
+    private boolean canceled = false;
+
+    Action(Creator creator, T target) {
         this.target = new WeakReference<>(target);
-        this.loadingDrawable = loading;
-        this.errorDrawable = error;
-        this.fade = fade;
-        this.debug = debug;
-        this.callback = callback;
+        this.task = new Task(creator);
+        this.loading = creator.loading;
+        this.error = creator.error;
+        this.fade = creator.fade;
+        this.debugColor = creator.debugColor;
+        this.callback = creator.callback;
     }
 
     T target() {
         return target.get();
+    }
+
+    String taskKey() {
+        return task.taskKey();
+    }
+
+    void cancel() {
+        canceled = true;
+    }
+
+    boolean isCanceled() {
+        return canceled;
     }
 
     abstract void prepare();

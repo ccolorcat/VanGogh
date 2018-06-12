@@ -24,6 +24,7 @@ import android.os.Process;
 
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -45,9 +46,10 @@ class Dispatcher {
     private final DispatchHandler dispatchHandler;
     private final ExecutorService executor;
     //    private final Deque<Task> tasks = new LinkedList<>();
-    private final Deque<RealCall> waiting = new LinkedList<>();
-    //    private final Set<RealCall> running = new HashSet<>();
-    private final Map<String, RealCall> running = new WeakHashMap<>();
+    private final Deque<Call> waiting = new LinkedList<>();
+    //    private final Set<Call> running = new HashSet<>();
+    private final Map<String, Call> running = new WeakHashMap<>();
+    private final Map<String, Call> callMap = new LinkedHashMap<>();
 
     private final VanGogh vanGogh;
     private volatile boolean pause = false;
@@ -61,91 +63,105 @@ class Dispatcher {
         this.dispatchHandler = new DispatchHandler(dispatchThread.getLooper(), this);
     }
 
-    void dispatchSubmit(RealCall call) {
-        dispatchHandler.dispatchMessage(dispatchHandler.obtainMessage(REQUEST_SUBMIT, call));
+    void dispatchSubmit(Action<?> action) {
+//        dispatchHandler.dispatchMessage(dispatchHandler.obtainMessage(REQUEST_SUBMIT, call));
     }
 
-    void dispatchCancel(RealCall call) {
-        dispatchHandler.dispatchMessage(dispatchHandler.obtainMessage(REQUEST_CANCEL, call));
+    void dispatchCancel(Action<?> action) {
+//        dispatchHandler.dispatchMessage(dispatchHandler.obtainMessage(REQUEST_CANCEL, call));
     }
 
-    void dispatchSuccess(RealCall call) {
-        dispatchHandler.dispatchMessage(dispatchHandler.obtainMessage(REQUEST_SUCCESS, call));
+    void dispatchSuccess(Call call) {
+//        dispatchHandler.dispatchMessage(dispatchHandler.obtainMessage(REQUEST_SUCCESS, call));
     }
 
-    void dispatchFailed(RealCall call) {
-        dispatchHandler.dispatchMessage(dispatchHandler.obtainMessage(REQUEST_FAILED, call));
+    void dispatchFailed(Call call) {
+//        dispatchHandler.dispatchMessage(dispatchHandler.obtainMessage(REQUEST_FAILED, call));
     }
 
-    void performSubmit(RealCall call) {
-        if (waiting.offer(call)) {
-            promoteCall();
-        }
+    void dispatchRetry(Call call) {
+
     }
 
-    void performCancel(RealCall call) {
-        waiting.remove(call);
-        running.remove(call.task().stableKey());
-        promoteCall();
-    }
-
-    void performSuccess(RealCall call) {
-        if (call.isCanceled()) return;
-        if (running.remove(call.task().stableKey()) == call) {
-            final String key = call.task().key();
-            boolean batch = false;
-            Iterator<RealCall> iterator = waiting.iterator();
-            while (iterator.hasNext()) {
-                RealCall realCall = iterator.next();
-                if (realCall.task().key().equals(key)) {
-                    batch = true;
-                    iterator.remove();
-                }
-            }
-            deliver(call, true, batch);
+    void performSubmit(Action<?> action) {
+        Call call = callMap.get(action.taskKey());
+        if (call != null) {
+            call.attach(action);
         } else {
-            LogUtils.e("performSuccess, but call recycled.");
+            call = new Call(vanGogh, action);
+            call.future = executor.submit(call);
+            callMap.put(action.taskKey(), call);
         }
-        promoteCall();
     }
 
-    void performFailed(RealCall call) {
-        if (call.isCanceled()) return;
-        if (running.remove(call.task().stableKey()) == call) {
-            if (call.shouldRetry()) {
-                reEnqueueWaiting(call);
-            } else {
-                deliver(call, false, false);
+    void performCancel(Action<?> action) {
+        final String key = action.taskKey();
+        Call call = callMap.get(key);
+        if (call != null) {
+            call.detach(action);
+            if (call.cancel()) {
+                callMap.remove(key);
             }
-        } else {
-            LogUtils.e("performFailed and call recycled.");
         }
-        promoteCall();
     }
 
-    private void deliver(RealCall call, boolean success, boolean batch) {
+    void performSuccess(Call call) {
+//        if (call.isCanceled()) return;
+//        if (running.remove(call.task().uriKey()) == call) {
+//            final String key = call.task().taskKey();
+//            boolean batch = false;
+//            Iterator<Call> iterator = waiting.iterator();
+//            while (iterator.hasNext()) {
+//                Call realCall = iterator.next();
+//                if (realCall.task().taskKey().equals(key)) {
+//                    batch = true;
+//                    iterator.remove();
+//                }
+//            }
+//            deliver(call, true, batch);
+//        } else {
+//            LogUtils.e("performSuccess, but call recycled.");
+//        }
+//        promoteCall();
+    }
+
+    void performFailed(Call call) {
+//        if (call.isCanceled()) return;
+//        if (running.remove(call.task().uriKey()) == call) {
+//            if (call.shouldRetry()) {
+//                reEnqueueWaiting(call);
+//            } else {
+//                deliver(call, false, false);
+//            }
+//        } else {
+//            LogUtils.e("performFailed and call recycled.");
+//        }
+//        promoteCall();
+    }
+
+    private void deliver(Call call, boolean success, boolean batch) {
         int what = !success ? VanGogh.DELIVER_FAILED : (batch ? VanGogh.DELIVER_SUCCESS_MULTIPLE : VanGogh.DELIVER_SUCCESS_SINGLE);
         mainHandler.dispatchMessage(mainHandler.obtainMessage(what, call));
     }
 
     private void promoteCall() {
-        RealCall call;
-        while (!pause && running.size() < vanGogh.maxRunning && (call = pollWaiting()) != null) {
-            String key = call.task().stableKey();
-            if (!running.containsKey(key)) {
-                running.put(key, call);
-                call.future = executor.submit(call);
-            } else {
-                reEnqueueWaiting(call);
-            }
-        }
+//        Call call;
+//        while (!pause && running.size() < vanGogh.maxRunning && (call = pollWaiting()) != null) {
+//            String key = call.task().uriKey();
+//            if (!running.containsKey(key)) {
+//                running.put(key, call);
+//                call.future = executor.submit(call);
+//            } else {
+//                reEnqueueWaiting(call);
+//            }
+//        }
     }
 
-    private RealCall pollWaiting() {
+    private Call pollWaiting() {
         return vanGogh.mostRecentFirst ? waiting.pollLast() : waiting.pollFirst();
     }
 
-    private void reEnqueueWaiting(RealCall call) {
+    private void reEnqueueWaiting(Call call) {
         if (vanGogh.mostRecentFirst) {
             waiting.offerFirst(call);
         } else {
@@ -180,13 +196,13 @@ class Dispatcher {
 
         @Override
         public void handleMessage(Message msg) {
-            RealCall call = (RealCall) msg.obj;
+            Call call = (Call) msg.obj;
             switch (msg.what) {
                 case REQUEST_SUBMIT:
-                    dispatcher.performSubmit(call);
+//                    dispatcher.performSubmit(call);
                     break;
                 case REQUEST_CANCEL:
-                    dispatcher.performCancel(call);
+//                    dispatcher.performCancel(call);
                     break;
                 case REQUEST_SUCCESS:
                     dispatcher.performSuccess(call);

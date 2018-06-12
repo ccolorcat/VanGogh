@@ -19,7 +19,6 @@ package cc.colorcat.vangogh;
 import android.graphics.Bitmap;
 import android.net.Uri;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -30,35 +29,35 @@ import java.util.List;
 @SuppressWarnings("unused")
 public final class Task {
     private final Uri uri;
-    private final String stableKey;
-    private final String key;
+    private final String uriKey;
+    private final String taskKey;
     private final int fromPolicy;
     private final int connectTimeOut;
     private final int readTimeOut;
     private final Options options;
     private final List<Transformation> transformations;
 
-    private Task(Creator creator) {
-        uri = creator.uri;
-        stableKey = creator.stableKey;
-        key = creator.key;
-        fromPolicy = creator.fromPolicy;
-        connectTimeOut = creator.connectTimeOut;
-        readTimeOut = creator.readTimeOut;
-        options = creator.options;
-        transformations = Utils.immutableList(creator.transformations);
+    Task(Creator creator) {
+        this.uri = creator.uri;
+        this.uriKey = creator.uriKey;
+        this.taskKey = creator.taskKey;
+        this.fromPolicy = creator.fromPolicy;
+        this.connectTimeOut = creator.connectTimeOut;
+        this.readTimeOut = creator.readTimeOut;
+        this.options = creator.options;
+        this.transformations = Utils.immutableList(creator.transformations);
     }
 
     public Uri uri() {
         return uri;
     }
 
-    public String stableKey() {
-        return stableKey;
+    public String uriKey() {
+        return uriKey;
     }
 
-    public String key() {
-        return key;
+    public String taskKey() {
+        return taskKey;
     }
 
     public int fromPolicy() {
@@ -79,10 +78,6 @@ public final class Task {
 
     public List<Transformation> transformations() {
         return transformations;
-    }
-
-    public Task.Creator newCreator() {
-        return new Creator(this);
     }
 
 
@@ -242,183 +237,6 @@ public final class Task {
                 LogUtils.e(e);
                 throw new RuntimeException(e);
             }
-        }
-    }
-
-
-    public final static class Creator {
-        Uri uri;
-        String stableKey;
-        int fromPolicy;
-        int connectTimeOut;
-        int readTimeOut;
-        Options options;
-        List<Transformation> transformations;
-        String key;
-
-        Creator(VanGogh vanGogh, Uri uri, String stableKey) {
-            this.uri = uri;
-            this.stableKey = stableKey;
-            this.fromPolicy = vanGogh.defaultFromPolicy;
-            this.connectTimeOut = vanGogh.connectTimeOut;
-            this.readTimeOut = vanGogh.readTimeOut;
-            this.options = vanGogh.defaultOptions.clone();
-            this.transformations = new ArrayList<>(vanGogh.transformations);
-        }
-
-        Creator(Task task) {
-            this.uri = task.uri;
-            this.stableKey = task.stableKey;
-            this.fromPolicy = task.fromPolicy;
-            this.connectTimeOut = task.connectTimeOut;
-            this.readTimeOut = task.readTimeOut;
-            this.options = task.options;
-            this.transformations = new ArrayList<>(task.transformations);
-        }
-
-        /**
-         * The policy of image source.
-         * Any source, <code>From.ANY.policy</code>
-         * Memory and Disk, <code>From.MEMORY.policy | From.DISK.policy</code>
-         * Memory and Network, <code>From.MEMORY.policy | From.NETWORK.policy</code>
-         * ...
-         *
-         * @see From
-         */
-        public Creator from(int fromPolicy) {
-            From.checkFromPolicy(fromPolicy);
-            this.fromPolicy = fromPolicy;
-            return this;
-        }
-
-        public Creator connectTimeOut(int timeOut) {
-            if (timeOut < 0) {
-                throw new IllegalArgumentException("timeOut < 0");
-            }
-            connectTimeOut = timeOut;
-            return this;
-        }
-
-        public Creator readTimeOut(int timeOut) {
-            if (timeOut < 0) {
-                throw new IllegalArgumentException("timeOut < 0");
-            }
-            readTimeOut = timeOut;
-            return this;
-        }
-
-        public Creator config(Bitmap.Config config) {
-            options.config(config);
-            return this;
-        }
-
-
-        /**
-         * Resize the image to less than the specified size in pixels.
-         */
-        public Creator maxSize(int maxWidth, int maxHeight) {
-            options.maxSize(maxWidth, maxHeight);
-            return this;
-        }
-
-        public Creator clearMaxSize() {
-            options.clearMaxSize();
-            return this;
-        }
-
-        /**
-         * Resize the image to the specified size in pixels.
-         */
-        public Creator resize(int width, int height) {
-            options.resize(width, height);
-            return this;
-        }
-
-        public Creator clearResize() {
-            options.clearMaxSize();
-            return this;
-        }
-
-        public Creator centerInside() {
-            options.centerInside();
-            return this;
-        }
-
-        public Creator centerCrop() {
-            options.centerCrop();
-            return this;
-        }
-
-        public Creator fitXY() {
-            options.fitXY();
-            return this;
-        }
-
-        /**
-         * Rotate the image by the specified degrees around a pivot point.
-         */
-        public Creator rotate(float degrees, float pivotX, float pivotY) {
-            options.rotate(degrees, pivotX, pivotY);
-            return this;
-        }
-
-        /**
-         * Rotate the image by the specified degrees.
-         */
-        public Creator rotate(float degrees) {
-            options.rotate(degrees);
-            return this;
-        }
-
-        public Creator addTransformation(Transformation transformation) {
-            if (transformation == null) {
-                throw new NullPointerException("transformation == null");
-            }
-            if (!transformations.contains(transformation)) {
-                transformations.add(transformation);
-            }
-            return this;
-        }
-
-        public Creator clearTransformation() {
-            transformations.clear();
-            return this;
-        }
-
-        public Task create() {
-            this.key = buildKey();
-            return new Task(this);
-        }
-
-        private String buildKey() {
-            StringBuilder builder = new StringBuilder(stableKey);
-            if (options.hasMaxSize()) {
-                builder.append("|maxSize:")
-                        .append(options.targetWidth())
-                        .append('x')
-                        .append(options.targetHeight());
-            } else if (options.hasResize()) {
-                builder.append("|resize:")
-                        .append(options.targetWidth())
-                        .append('x')
-                        .append(options.targetHeight())
-                        .append("scaleType:")
-                        .append(options.scaleType());
-            }
-            if (options.hasRotation()) {
-                builder.append("|rotation:")
-                        .append(options.rotationDegrees());
-                if (options.hasRotationPivot()) {
-                    builder.append("pivot:")
-                            .append(options.rotationPivotX())
-                            .append('x')
-                            .append(options.rotationPivotY());
-                }
-            }
-            for (int i = 0, size = transformations.size(); i < size; ++i) {
-                builder.append('|').append(transformations.get(i).getKey());
-            }
-            return builder.toString();
         }
     }
 }

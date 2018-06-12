@@ -24,6 +24,9 @@ import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
 import android.widget.ImageView;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Author: cxx
  * Date: 2018-06-11
@@ -31,93 +34,119 @@ import android.widget.ImageView;
  */
 public final class Creator {
     private final VanGogh vanGogh;
-    private final Task.Creator taskCreator;
-    private Drawable loading;
-    private Drawable error;
-    private boolean fade;
-    private boolean debug;
+    final Uri uri;
+    final String uriKey;
+    int fromPolicy;
+    int connectTimeOut;
+    int readTimeOut;
+    Task.Options options;
+    List<Transformation> transformations;
+    Drawable loading;
+    Drawable error;
+    boolean fade;
+    boolean debugColor;
+    Callback callback;
+    String taskKey;
 
-    Creator(VanGogh vanGogh, Uri uri, String stableKey) {
+    Creator(VanGogh vanGogh, Uri uri, String uriKey) {
         this.vanGogh = vanGogh;
-        this.taskCreator = new Task.Creator(vanGogh, uri, stableKey);
+        this.uri = uri;
+        this.uriKey = uriKey;
+        this.fromPolicy = vanGogh.defaultFromPolicy;
+        this.connectTimeOut = vanGogh.connectTimeOut;
+        this.readTimeOut = vanGogh.readTimeOut;
+        this.options = vanGogh.defaultOptions.clone();
+        this.transformations = new ArrayList<>(vanGogh.transformations);
         this.loading = vanGogh.defaultLoading;
         this.error = vanGogh.defaultError;
         this.fade = vanGogh.fade;
-        this.debug = vanGogh.debug;
+        this.debugColor = vanGogh.debugColor;
     }
 
     public Creator from(int fromPolicy) {
-        taskCreator.from(fromPolicy);
+        From.checkFromPolicy(fromPolicy);
+        this.fromPolicy = fromPolicy;
         return this;
     }
 
     public Creator connectTimeOut(int timeOut) {
-        taskCreator.connectTimeOut(timeOut);
+        if (timeOut < 0) {
+            throw new IllegalArgumentException("timeOut < 0");
+        }
+        this.connectTimeOut = timeOut;
         return this;
     }
 
     public Creator readTimeOut(int timeOut) {
-        taskCreator.readTimeOut(timeOut);
+        if (timeOut < 0) {
+            throw new IllegalArgumentException("timeOut < 0");
+        }
+        this.readTimeOut = timeOut;
         return this;
     }
 
     public Creator config(@NonNull Bitmap.Config config) {
-        taskCreator.config(config);
+        this.options.config(config);
         return this;
     }
 
     public Creator maxSize(int maxWidth, int maxHeight) {
-        taskCreator.maxSize(maxWidth, maxHeight);
+        this.options.maxSize(maxWidth, maxHeight);
         return this;
     }
 
     public Creator clearMaxSize() {
-        taskCreator.clearMaxSize();
+        this.options.clearMaxSize();
         return this;
     }
 
     public Creator resize(int width, int height) {
-        taskCreator.resize(width, height);
+        this.options.resize(width, height);
         return this;
     }
 
     public Creator clearResize() {
-        taskCreator.clearResize();
+        this.options.clearResize();
         return this;
     }
 
     public Creator centerInside() {
-        taskCreator.centerInside();
+        this.options.centerInside();
         return this;
     }
 
     public Creator centerCrop() {
-        taskCreator.centerCrop();
+        this.options.centerCrop();
         return this;
     }
 
     public Creator fitXY() {
-        taskCreator.fitXY();
+        this.options.fitXY();
         return this;
     }
 
     public Creator rotate(float degrees, float pivotX, float pivotY) {
-        taskCreator.rotate(degrees, pivotX, pivotY);
+        this.options.rotate(degrees, pivotX, pivotY);
         return this;
     }
 
     public Creator rotate(float degrees) {
-        taskCreator.rotate(degrees);
+        this.options.rotate(degrees);
         return this;
     }
 
     public Creator addTransformation(Transformation transformation) {
-        taskCreator.addTransformation(transformation);
+        if (transformation == null) {
+            throw new IllegalArgumentException("transformation == null");
+        }
+        if (!this.transformations.contains(transformation)) {
+            this.transformations.add(transformation);
+        }
         return this;
     }
 
     public Creator clearTransformation() {
-        taskCreator.clearTransformation();
+        this.transformations.clear();
         return this;
     }
 
@@ -169,8 +198,8 @@ public final class Creator {
         return this;
     }
 
-    public Creator debug(boolean debug) {
-        this.debug = debug;
+    public Creator debugColor(boolean debugColor) {
+        this.debugColor = debugColor;
         return this;
     }
 
@@ -180,24 +209,24 @@ public final class Creator {
 
     public void into(ImageView target, Callback callback) {
         if (target == null) {
-            throw new NullPointerException("target == null");
+            throw new IllegalArgumentException("target == null");
         }
-        if (taskCreator.uri == Uri.EMPTY) {
+        if (uri == Uri.EMPTY) {
             vanGogh.cancelExistingCall(target);
             target.setImageDrawable(error);
             return;
         }
-        Task task = taskCreator.create();
-        Action<ImageView> action = new ImageViewAction(target, loading, error, fade, debug, Utils.nullElse(callback, EmptyCallback.EMPTY));
-        Bitmap bitmap = vanGogh.obtainFromMemoryCache(task.key());
-        if (bitmap != null) {
-            action.complete(bitmap, From.MEMORY);
-            return;
+        this.callback = Utils.nullElse(callback, EmptyCallback.EMPTY);
+        taskKey = Utils.createTaskKey(this);
+        if ((fromPolicy & From.MEMORY.policy) != 0) {
+            Bitmap bitmap = vanGogh.obtainFromMemoryCache(taskKey);
+            if (bitmap != null) {
+                target.setImageBitmap(bitmap); // todo 改为 VanGoghDrawable
+                this.callback.onSuccess(bitmap);
+                return;
+            }
         }
-        vanGogh.enqueueAndSubmit(new RealCall(vanGogh, task, action));
+        Action action = new ImageViewAction(this, target);
+        vanGogh.enqueueAndSubmit(action);
     }
-
-//    public void into(Target target) {
-//
-//    }
 }

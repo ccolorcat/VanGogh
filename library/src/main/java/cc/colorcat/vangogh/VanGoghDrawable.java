@@ -27,7 +27,9 @@ import android.graphics.drawable.BitmapDrawable;
  * GitHub: https://github.com/ccolorcat
  */
 public class VanGoghDrawable extends BitmapDrawable {
-    private final boolean animating;
+    private final boolean fade;
+    private final boolean debugColor;
+    private final From from;
     private int maxAlpha = 0xFF;
     private int alpha = 0; // [0, maxAlpha]
 
@@ -36,13 +38,19 @@ public class VanGoghDrawable extends BitmapDrawable {
     }
 
     public VanGoghDrawable(Resources res, Bitmap bitmap, boolean animating) {
+        this(res, bitmap, animating, false, From.MEMORY);
+    }
+
+    public VanGoghDrawable(Resources res, Bitmap bitmap, boolean fade, boolean debugColor, From from) {
         super(res, bitmap);
-        this.animating = animating;
+        this.fade = fade;
+        this.debugColor = debugColor;
+        this.from = from;
     }
 
     @Override
     public void draw(Canvas canvas) {
-        if (animating && alpha < maxAlpha) {
+        if (fade && alpha < maxAlpha) {
             alpha += 10;
             super.setAlpha(Math.min(alpha, maxAlpha));
         }

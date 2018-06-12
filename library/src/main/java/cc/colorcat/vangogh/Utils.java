@@ -306,8 +306,40 @@ class Utils {
         return Bitmap.createBitmap(result, 0, 0, width, height, matrix, true);
     }
 
+    static String createTaskKey(Creator creator) {
+        StringBuilder builder = new StringBuilder(creator.uriKey);
+        Task.Options options = creator.options;
+        if (options.hasMaxSize()) {
+            builder.append("|maxSize:")
+                    .append(options.targetWidth())
+                    .append('x')
+                    .append(options.targetHeight());
+        } else if (options.hasResize()) {
+            builder.append("|resize:")
+                    .append(options.targetWidth())
+                    .append('x')
+                    .append(options.targetHeight())
+                    .append("scaleType:")
+                    .append(options.scaleType());
+        }
+        if (options.hasRotation()) {
+            builder.append("|rotation:")
+                    .append(options.rotationDegrees());
+            if (options.hasRotationPivot()) {
+                builder.append("pivot:")
+                        .append(options.rotationPivotX())
+                        .append('x')
+                        .append(options.rotationPivotY());
+            }
+        }
+        for (int i = 0, size = creator.transformations.size(); i < size; ++i) {
+            builder.append('|').append(creator.transformations.get(i).getKey());
+        }
+        return builder.toString();
+    }
+
     //    static String createKey(Task.Creator creator) {
-//        StringBuilder sb = new StringBuilder(creator.stableKey).append('@');
+//        StringBuilder sb = new StringBuilder(creator.uriKey).append('@');
 //        Task.Options op = creator.options;
 //        if (op.hasSize()) {
 //            sb.append(op.hasMaxSize() ? "maxSize:" : "resize:")

@@ -16,17 +16,109 @@
 
 package cc.colorcat.vangogh;
 
+import android.graphics.Bitmap;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Future;
+
 /**
  * Author: cxx
  * Date: 2017-07-11
  * GitHub: https://github.com/ccolorcat
  */
-public interface Call extends Runnable {
-    Task task();
+class Call implements Runnable {
+    private final VanGogh vanGogh;
 
-    boolean shouldRetry();
+    private int count = 0;
+    Action<?> action;
+    List<Action<?>> actions;
+    Task task;
+    Future<?> future;
 
-    void cancel();
+    Bitmap result;
+    From from;
+    Exception cause;
 
-    boolean isCanceled();
+    Call(VanGogh vanGogh, Action<?> action) {
+        this.vanGogh = vanGogh;
+        this.action = action;
+        this.task = action.task;
+    }
+
+    void attach(Action<?> action) {
+        if (actions == null) {
+            actions = new ArrayList<>(8);
+        }
+        actions.add(action);
+    }
+
+    void detach(Action<?> action) {
+        if (this.action == action) {
+            this.action = null;
+        } else if (this.actions != null) {
+            this.actions.remove(action);
+        }
+    }
+
+    String getTaskKey() {
+        return task.taskKey();
+    }
+
+    boolean shouldRetry() {
+        return count <= vanGogh.retryCount;
+    }
+
+    boolean cancel() {
+        return actions.isEmpty() && future != null && future.cancel(false);
+    }
+
+    boolean isCanceled() {
+        return future != null && future.isCancelled();
+    }
+
+    @Override
+    public void run() {
+        try {
+            Result result = getResultWithInterceptor();
+            this.result = result.bitmap();
+            this.from = result.from();
+        } catch (IOException e) {
+            cause = e;
+            LogUtils.e(e);
+        } catch (IndexOutOfBoundsException e) {
+            cause = new UnsupportedOperationException("unsupported uri: " + task.uri());
+            LogUtils.e(e);
+        } catch (Exception e) {
+            cause = e;
+            LogUtils.e(e);
+        } finally {
+            if (result != null) {
+                vanGogh.dispatcher.dispatchSuccess(this);
+            } else {
+                vanGogh.dispatcher.dispatchFailed(this);
+            }
+        }
+    }
+
+    private Result getResultWithInterceptor() throws IOException {
+        ++count;
+        List<Interceptor> users = vanGogh.interceptors;
+        List<Interceptor> interceptors = new ArrayList<>(users.size() + 7);
+        interceptors.addAll(users);
+        if (vanGogh.debugColor) {
+            interceptors.add(new WatermarkInterceptor());
+        }
+        interceptors.add(new TransformInterceptor());
+        interceptors.add(new MemoryCacheInterceptor(vanGogh.memoryCache));
+        interceptors.add(new StreamInterceptor());
+        interceptors.add(new ContentInterceptor(vanGogh.context));
+        if (vanGogh.diskCache != null) {
+            interceptors.add(new DiskCacheInterceptor(vanGogh.diskCache));
+        }
+        interceptors.add(new NetworkInterceptor());
+        Interceptor.Chain chain = new RealInterceptorChain(interceptors, 0, task, vanGogh.downloader.clone());
+        return chain.proceed(task);
+    }
 }

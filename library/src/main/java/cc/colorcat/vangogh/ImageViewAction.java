@@ -27,23 +27,23 @@ import android.widget.ImageView;
  */
 class ImageViewAction extends Action<ImageView> {
 
-    ImageViewAction(ImageView target, Drawable loading, Drawable error, boolean fade, boolean debug, Callback callback) {
-        super(target, loading, error, fade, debug, callback);
+    ImageViewAction(Creator creator, ImageView target) {
+        super(creator, target);
     }
 
     @Override
     void prepare() {
         ImageView target = this.target();
         if (target != null) {
-            target.setImageDrawable(loadingDrawable);
+            target.setImageDrawable(loading);
         }
     }
 
     @Override
     void complete(Bitmap result, From from) {
-        ImageView target = this.target();
+        ImageView target = target();
         if (target != null) {
-            target.setImageDrawable(new VanGoghDrawable(target.getResources(), result, fade && from != From.MEMORY));
+            target.setImageDrawable(new VanGoghDrawable(target.getResources(), result, fade, debugColor, from));
             callback.onSuccess(result);
         }
     }
@@ -52,7 +52,7 @@ class ImageViewAction extends Action<ImageView> {
     void error(Exception e) {
         ImageView target = this.target();
         if (target != null) {
-            target.setImageDrawable(errorDrawable);
+            target.setImageDrawable(error);
             callback.onError(e);
         }
     }
