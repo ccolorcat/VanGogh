@@ -47,6 +47,7 @@ public final class Creator {
     boolean debugColor;
     Callback callback;
     String key;
+    Object tag;
 
     Creator(VanGogh vanGogh, Uri uri, String stableKey) {
         this.vanGogh = vanGogh;
@@ -221,7 +222,7 @@ public final class Creator {
         if ((fromPolicy & From.MEMORY.policy) != 0) {
             Bitmap bitmap = vanGogh.obtainFromMemoryCache(key);
             if (bitmap != null) {
-                VanGoghDrawable drawable = new VanGoghDrawable(vanGogh.resources(), bitmap, false, debugColor, From.MEMORY, vanGogh.context);
+                VanGoghDrawable drawable = new VanGoghDrawable(vanGogh.resources(), bitmap, fade, debugColor, From.MEMORY, vanGogh.context);
                 target.setImageDrawable(drawable);
                 this.callback.onSuccess(bitmap);
                 return;

@@ -46,6 +46,10 @@ public class VanGoghDrawable extends BitmapDrawable {
         DEBUG_PAINT.setStyle(Paint.Style.FILL);
     }
 
+    VanGoghDrawable(VanGogh vanGogh, Bitmap bitmap, boolean fade, boolean debugColor, From from) {
+        this(vanGogh.resources(), bitmap, fade, debugColor, from, vanGogh.context);
+    }
+
     VanGoghDrawable(Resources res, Bitmap bitmap, boolean fade, boolean debugColor, From from, Context context) {
         super(res, bitmap);
         this.fade = fade;

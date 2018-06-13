@@ -34,6 +34,7 @@ abstract class Action<T> {
     final boolean fade;
     final boolean debugColor;
     final Callback callback;
+    final Object tag;
 
     private boolean canceled = false;
 
@@ -45,6 +46,7 @@ abstract class Action<T> {
         this.fade = creator.fade;
         this.debugColor = creator.debugColor;
         this.callback = creator.callback;
+        this.tag = creator.tag;
     }
 
     T target() {
@@ -53,6 +55,10 @@ abstract class Action<T> {
 
     String key() {
         return task.key();
+    }
+
+    Object tag() {
+        return tag;
     }
 
     void cancel() {
