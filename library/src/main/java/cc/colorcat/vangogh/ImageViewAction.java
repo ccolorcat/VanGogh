@@ -42,7 +42,7 @@ class ImageViewAction extends Action<ImageView> {
     void complete(Bitmap result, From from) {
         ImageView target = target();
         if (target != null) {
-            target.setImageDrawable(new VanGoghDrawable(target.getResources(), result, fade, debugColor, from, target.getContext()));
+            target.setImageDrawable(new VanGoghDrawable(target.getContext(), result, from, fade, indicatorEnabled));
             callback.onSuccess(result);
         }
     }

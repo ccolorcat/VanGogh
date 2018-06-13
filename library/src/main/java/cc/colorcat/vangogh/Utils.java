@@ -264,7 +264,7 @@ class Utils {
     }
 
     private static int calculateInSampleSize(BitmapFactory.Options bo, Task.Options to) {
-        final int maxWidth = to.targetWidth(), maxHeight = to.targetHeight();
+        final int maxWidth = to.maxWidth(), maxHeight = to.maxHeight();
         final int width = bo.outWidth, height = bo.outHeight;
         int inSampleSize = 1;
         while (width / inSampleSize > maxWidth && height / inSampleSize > maxHeight) {
@@ -284,6 +284,7 @@ class Utils {
         return newResult;
     }
 
+    // todo 需要调整 resize 策略
     static Bitmap applyOptions(Bitmap result, Task.Options ops) {
         Matrix matrix = new Matrix();
         final int width = result.getWidth(), height = result.getHeight();

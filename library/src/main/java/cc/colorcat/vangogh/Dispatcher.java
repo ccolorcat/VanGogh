@@ -16,6 +16,7 @@
 
 package cc.colorcat.vangogh;
 
+import android.drm.DrmStore;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -23,9 +24,13 @@ import android.os.Message;
 import android.os.Process;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -40,6 +45,8 @@ class Dispatcher {
     static final int CALL_FAILED = 103;
     static final int CALL_RETRY = 104;
     static final int CALL_DELAY_NEXT_BATCH = 105;
+    static final int TAG_PAUSE = 106;
+    static final int TAG_RESUME = 107;
 
     private final Handler mainHandler;
     private final DispatcherThread dispatcherThread;
@@ -47,9 +54,10 @@ class Dispatcher {
     private final ExecutorService executor;
     private final Map<String, Call> callMap = new LinkedHashMap<>();
     private final List<Call> batch = new ArrayList<>(4);
+    private final Set<Object> pausedTags = new HashSet<>();
+    private final Map<Object, Action> pausedActions = new WeakHashMap<>(); // target to action
 
     private final VanGogh vanGogh;
-    private volatile boolean pause = false;
 
     Dispatcher(VanGogh vanGogh, ExecutorService executor, Handler mainHandler) {
         this.vanGogh = vanGogh;
@@ -80,6 +88,14 @@ class Dispatcher {
 
     void dispatchRetry(Call call) {
         handler.sendMessage(handler.obtainMessage(CALL_RETRY, call));
+    }
+
+    void dispatchPauseTag(Object tag) {
+        handler.sendMessage(handler.obtainMessage(TAG_PAUSE, tag));
+    }
+
+    void dispatchResumeTag(Object tag) {
+        handler.sendMessage(handler.obtainMessage(TAG_RESUME, tag));
     }
 
     void performSubmit(Action action) {
@@ -121,6 +137,50 @@ class Dispatcher {
         call.future = executor.submit(call);
     }
 
+    void performPauseTag(Object tag) {
+        if (!pausedTags.add(tag)) {
+            return;
+        }
+        Iterator<Call> iterator = callMap.values().iterator();
+        while (iterator.hasNext()) {
+            Call call = iterator.next();
+            if (call.actions.isEmpty()) {
+                continue;
+            }
+            for (int i = 0, size = call.actions.size(); i < size; ++i) {
+                Action action = call.actions.get(i);
+                if (!action.tag.equals(tag)) {
+                    continue;
+                }
+                call.detach(action);
+                pausedActions.put(action.target(), action);
+            }
+            if (call.tryCancel()) {
+                iterator.remove();
+            }
+        }
+    }
+
+    void performResumeTag(Object tag) {
+        if (!pausedTags.remove(tag)) {
+            return;
+        }
+        List<Action> resumed = null;
+        for (Iterator<Action> i = pausedActions.values().iterator(); i.hasNext(); ) {
+            Action action = i.next();
+            if (action.tag.equals(tag)) {
+                if (resumed == null) {
+                    resumed = new ArrayList<>();
+                }
+                resumed.add(action);
+                i.remove();
+            }
+        }
+        if (resumed != null) {
+            mainHandler.sendMessage(mainHandler.obtainMessage(VanGogh.ACTION_BATCH_RESUME, resumed));
+        }
+    }
+
     private void performBatchComplete() {
         List<Call> copy = new ArrayList<>(batch);
         batch.clear();
@@ -138,17 +198,6 @@ class Dispatcher {
         if (!handler.hasMessages(CALL_DELAY_NEXT_BATCH)) {
             handler.sendEmptyMessageDelayed(CALL_DELAY_NEXT_BATCH, 200);
         }
-    }
-
-    void pause() {
-        pause = true;
-    }
-
-    void resume() {
-        pause = false;
-    }
-
-    void clear() {
     }
 
     private static class DispatcherThread extends HandlerThread {
@@ -195,6 +244,14 @@ class Dispatcher {
                 }
                 case CALL_DELAY_NEXT_BATCH: {
                     dispatcher.performBatchComplete();
+                    break;
+                }
+                case TAG_PAUSE: {
+                    dispatcher.performPauseTag(msg.obj);
+                    break;
+                }
+                case TAG_RESUME: {
+                    dispatcher.performResumeTag(msg.obj);
                     break;
                 }
                 default:

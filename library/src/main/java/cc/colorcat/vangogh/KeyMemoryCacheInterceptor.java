@@ -22,13 +22,13 @@ import java.io.IOException;
 
 /**
  * Author: cxx
- * Date: 2017-07-11
+ * Date: 2018-06-13
  * GitHub: https://github.com/ccolorcat
  */
-class MemoryCacheInterceptor implements Interceptor {
+class KeyMemoryCacheInterceptor implements Interceptor {
     private Cache<Bitmap> memoryCache;
 
-    MemoryCacheInterceptor(Cache<Bitmap> cache) {
+    KeyMemoryCacheInterceptor(Cache<Bitmap> cache) {
         this.memoryCache = cache;
     }
 
@@ -37,13 +37,13 @@ class MemoryCacheInterceptor implements Interceptor {
         Task task = chain.task();
         int fromPolicy = task.fromPolicy() & From.MEMORY.policy;
         if (fromPolicy != 0) {
-            Bitmap bitmap = memoryCache.get(task.stableKey());
+            Bitmap bitmap = memoryCache.get(task.key());
             if (bitmap != null) {
                 return new Result(bitmap, From.MEMORY);
             }
         }
         Result result = chain.proceed(task);
-        memoryCache.save(task.stableKey(), result.bitmap());
+        memoryCache.save(task.key(), result.bitmap());
         return result;
     }
 }

@@ -32,7 +32,7 @@ abstract class Action<T> {
     final Drawable loading;
     final Drawable error;
     final boolean fade;
-    final boolean debugColor;
+    final boolean indicatorEnabled;
     final Callback callback;
     final Object tag;
 
@@ -44,7 +44,7 @@ abstract class Action<T> {
         this.loading = creator.loading;
         this.error = creator.error;
         this.fade = creator.fade;
-        this.debugColor = creator.debugColor;
+        this.indicatorEnabled = creator.indicatorEnabled;
         this.callback = creator.callback;
         this.tag = creator.tag;
     }

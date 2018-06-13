@@ -17,7 +17,6 @@
 package cc.colorcat.vangogh;
 
 import android.content.Context;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -33,10 +32,10 @@ import android.graphics.drawable.BitmapDrawable;
 public class VanGoghDrawable extends BitmapDrawable {
     private static final Paint DEBUG_PAINT;
 
-    private final boolean fade;
-    private final boolean debugColor;
     private final From from;
-    private float density;
+    private final boolean fade;
+    private final boolean indicatorEnabled;
+    private final float density;
 
     private int maxAlpha = 0xFF;
     private int alpha = 0; // [0, maxAlpha]
@@ -46,15 +45,11 @@ public class VanGoghDrawable extends BitmapDrawable {
         DEBUG_PAINT.setStyle(Paint.Style.FILL);
     }
 
-    VanGoghDrawable(VanGogh vanGogh, Bitmap bitmap, boolean fade, boolean debugColor, From from) {
-        this(vanGogh.resources(), bitmap, fade, debugColor, from, vanGogh.context);
-    }
-
-    VanGoghDrawable(Resources res, Bitmap bitmap, boolean fade, boolean debugColor, From from, Context context) {
-        super(res, bitmap);
-        this.fade = fade;
-        this.debugColor = debugColor;
+    VanGoghDrawable(Context context, Bitmap bitmap, From from, boolean fade, boolean indicatorEnabled) {
+        super(context.getResources(), bitmap);
         this.from = from;
+        this.fade = fade;
+        this.indicatorEnabled = indicatorEnabled;
         this.density = context.getResources().getDisplayMetrics().density;
     }
 
@@ -66,7 +61,7 @@ public class VanGoghDrawable extends BitmapDrawable {
             super.draw(canvas);
         } else {
             super.draw(canvas);
-            if (debugColor) {
+            if (indicatorEnabled) {
                 drawDebugColor(canvas);
             }
         }

@@ -50,14 +50,13 @@ import java.util.concurrent.TimeUnit;
 @SuppressWarnings("unused")
 public class VanGogh {
     static final int CALL_BATCH_COMPLETE = 0x15;
+    static final int ACTION_BATCH_RESUME = 0x16;
 
     @SuppressLint("StaticFieldLeak")
     private static volatile VanGogh singleton;
 
     private final Map<Object, Action> targetToAction;
     final Dispatcher dispatcher;
-    final boolean mostRecentFirst;
-    final int maxRunning;
     final int maxTry;
     final int connectTimeOut;
     final int readTimeOut;
@@ -71,7 +70,7 @@ public class VanGogh {
 
     final Task.Options defaultOptions;
     final Context context;
-    final boolean debugColor;
+    final boolean indicatorEnabled;
 
     final List<Transformation> transformations;
 
@@ -82,8 +81,6 @@ public class VanGogh {
 
 
     private VanGogh(Builder builder, Cache<Bitmap> memoryCache, DiskCache diskCache) {
-        mostRecentFirst = builder.mostRecentFirst;
-        maxRunning = builder.maxRunning;
         maxTry = builder.maxTry;
         connectTimeOut = builder.connectTimeOut;
         readTimeOut = builder.readTimeOut;
@@ -92,7 +89,7 @@ public class VanGogh {
         defaultFromPolicy = builder.defaultFromPolicy;
         defaultOptions = builder.defaultOptions;
         context = builder.context;
-        debugColor = builder.debug;
+        indicatorEnabled = builder.indicatorEnabled;
         transformations = Utils.immutableList(builder.transformations);
         defaultLoading = builder.defaultLoading;
         defaultError = builder.defaultError;
@@ -111,7 +108,7 @@ public class VanGogh {
         }
     }
 
-    void enqueueAndSubmit(Action<?> action) {
+    void enqueueAndSubmit(Action action) {
         Object target = action.target();
         if (target != null && targetToAction.get(target) != action) {
             cancelExistingAction(target);
@@ -120,24 +117,31 @@ public class VanGogh {
         submit(action);
     }
 
-    void submit(Action<?> action) {
+    void submit(Action action) {
         dispatcher.dispatchSubmit(action);
     }
 
     void complete(Call call) {
-        Bitmap result = call.bitmap;
-        Throwable cause = call.cause;
-        From from = call.from;
-
-        Action single = call.action;
-        if (single != null) {
-            deliverAction(result, from, cause, single);
-        }
-        List<Action> joined = call.actions;
-        if (joined != null && !joined.isEmpty()) {
-            for (int i = 0, size = joined.size(); i < size; ++i) {
-                deliverAction(result, from, cause, joined.get(i));
+        List<Action> actions = call.actions;
+        if (!actions.isEmpty()) {
+            Bitmap result = call.bitmap;
+            From from = call.from;
+            Throwable cause = call.cause;
+            for (int i = 0, size = actions.size(); i < size; ++i) {
+                deliverAction(result, from, cause, actions.get(i));
             }
+        }
+    }
+
+    void resumeAction(Action action) {
+        Bitmap bitmap = null;
+        if ((action.task.fromPolicy() & From.MEMORY.policy) != 0) {
+            bitmap = obtainFromMemoryCache(action.key());
+        }
+        if (bitmap != null) {
+            deliverAction(bitmap, From.MEMORY, null, action);
+        } else {
+            enqueueAndSubmit(action);
         }
     }
 
@@ -145,11 +149,20 @@ public class VanGogh {
         if (action.isCanceled()) {
             return;
         }
+        targetToAction.remove(action.target());
         if (result != null) {
             action.complete(result, from);
         } else {
             action.error(cause);
         }
+    }
+
+    public void pauseTag(Object tag) {
+        dispatcher.dispatchPauseTag(tag);
+    }
+
+    public void resumeTag(Object tag) {
+        dispatcher.dispatchResumeTag(tag);
     }
 
     /**
@@ -172,7 +185,7 @@ public class VanGogh {
      * @see #load(String)
      */
     public Creator load(@DrawableRes int resId) {
-        return this.load(VanGogh.toUri(resources(), resId));
+        return this.load(VanGogh.toUri(context, resId));
     }
 
     /**
@@ -205,7 +218,7 @@ public class VanGogh {
      * @see #resume()
      */
     public void pause() {
-        dispatcher.pause();
+//        dispatcher.pause();
     }
 
     /**
@@ -214,14 +227,14 @@ public class VanGogh {
      * @see #pause()
      */
     public void resume() {
-        dispatcher.resume();
+//        dispatcher.resume();
     }
 
     /**
      * Clear all pending tasks.
      */
     public void clear() {
-        dispatcher.clear();
+//        dispatcher.clear();
     }
 
     /**
@@ -229,18 +242,6 @@ public class VanGogh {
      */
     public void releaseMemory() {
         memoryCache.clear();
-    }
-
-    void enqueue(Task task) {
-//        dispatcher.enqueue(task);
-    }
-
-    Resources resources() {
-        return context.getResources();
-    }
-
-    Resources.Theme theme() {
-        return context.getTheme();
     }
 
     @Nullable
@@ -284,7 +285,8 @@ public class VanGogh {
         return singleton;
     }
 
-    public static Uri toUri(Resources resources, @DrawableRes int resId) {
+    public static Uri toUri(Context context, @DrawableRes int resId) {
+        final Resources resources = context.getResources();
         return new Uri.Builder()
                 .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
                 .authority(resources.getResourcePackageName(resId))
@@ -312,6 +314,10 @@ public class VanGogh {
                     }
                     break;
                 }
+                case VanGogh.ACTION_BATCH_RESUME: {
+
+                    break;
+                }
                 default:
                     throw new AssertionError("Unknown handler message received: " + msg.what);
             }
@@ -321,8 +327,6 @@ public class VanGogh {
 
     public static class Builder {
         private ExecutorService executor;
-        private boolean mostRecentFirst;
-        private int maxRunning;
         private int maxTry;
         private int connectTimeOut;
         private int readTimeOut;
@@ -337,7 +341,7 @@ public class VanGogh {
 
         private Task.Options defaultOptions;
         private Context context;
-        private boolean debug;
+        private boolean indicatorEnabled;
 
         private List<Transformation> transformations;
         private boolean fade;
@@ -346,8 +350,6 @@ public class VanGogh {
         private Drawable defaultError;
 
         public Builder(Context ctx) {
-            mostRecentFirst = true;
-            maxRunning = 4;
             maxTry = 1;
             connectTimeOut = 5000;
             readTimeOut = 5000;
@@ -359,7 +361,7 @@ public class VanGogh {
             diskCacheSize = (long) Math.min(50 * 1024 * 1024, cacheDirectory.getUsableSpace() * 0.1);
             defaultOptions = new Task.Options();
             context = ctx.getApplicationContext();
-            debug = false;
+            indicatorEnabled = false;
             transformations = new ArrayList<>(4);
             fade = true;
         }
@@ -372,26 +374,6 @@ public class VanGogh {
                 throw new NullPointerException("executor == null");
             }
             this.executor = executor;
-            return this;
-        }
-
-        /**
-         * @param mostRecentFirst LIFO if true, otherwise FIFO, the default is true.
-         */
-        public Builder taskPolicy(boolean mostRecentFirst) {
-            this.mostRecentFirst = mostRecentFirst;
-            return this;
-        }
-
-        /**
-         * @param maxRunning The maximum number of concurrent tasks.
-         * @throws IllegalArgumentException If the maxRunning less than 1 or greater than 10.
-         */
-        public Builder maxRunning(int maxRunning) {
-            if (maxRunning < 1 || maxRunning > 10) {
-                throw new IllegalArgumentException("maxRunning[1, 10] = " + maxRunning);
-            }
-            this.maxRunning = maxRunning;
             return this;
         }
 
@@ -493,8 +475,8 @@ public class VanGogh {
             return this;
         }
 
-        public Builder debug(boolean debug) {
-            this.debug = debug;
+        public Builder enableIndicator(boolean enabled) {
+            this.indicatorEnabled = enabled;
             return this;
         }
 
@@ -567,8 +549,8 @@ public class VanGogh {
             }
             if (executor == null) {
                 executor = new ThreadPoolExecutor(
-                        maxRunning,
-                        Math.min(maxRunning + (maxRunning >> 1), 10),
+                        4,
+                        5,
                         10L,
                         TimeUnit.SECONDS,
                         new LinkedBlockingDeque<Runnable>(),

@@ -44,10 +44,10 @@ public final class Creator {
     Drawable loading;
     Drawable error;
     boolean fade;
-    boolean debugColor;
+    boolean indicatorEnabled;
     Callback callback;
-    String key;
     Object tag;
+    String key;
 
     Creator(VanGogh vanGogh, Uri uri, String stableKey) {
         this.vanGogh = vanGogh;
@@ -61,7 +61,8 @@ public final class Creator {
         this.loading = vanGogh.defaultLoading;
         this.error = vanGogh.defaultError;
         this.fade = vanGogh.fade;
-        this.debugColor = vanGogh.debugColor;
+        this.indicatorEnabled = vanGogh.indicatorEnabled;
+        this.tag = stableKey;
     }
 
     public Creator from(int fromPolicy) {
@@ -158,7 +159,7 @@ public final class Creator {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             this.loading = vanGogh.context.getDrawable(loadingResId);
         } else {
-            this.loading = vanGogh.resources().getDrawable(loadingResId);
+            this.loading = vanGogh.context.getResources().getDrawable(loadingResId);
         }
         return this;
     }
@@ -178,7 +179,7 @@ public final class Creator {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             this.error = vanGogh.context.getDrawable(errorResId);
         } else {
-            this.error = vanGogh.resources().getDrawable(errorResId);
+            this.error = vanGogh.context.getResources().getDrawable(errorResId);
         }
         return this;
     }
@@ -199,8 +200,16 @@ public final class Creator {
         return this;
     }
 
-    public Creator debugColor(boolean debugColor) {
-        this.debugColor = debugColor;
+    public Creator enableIndicator(boolean enabled) {
+        this.indicatorEnabled = enabled;
+        return this;
+    }
+
+    public Creator tag(Object tag) {
+        if (tag == null) {
+            throw new IllegalArgumentException("tag == null");
+        }
+        this.tag = tag;
         return this;
     }
 
@@ -222,13 +231,13 @@ public final class Creator {
         if ((fromPolicy & From.MEMORY.policy) != 0) {
             Bitmap bitmap = vanGogh.obtainFromMemoryCache(key);
             if (bitmap != null) {
-                VanGoghDrawable drawable = new VanGoghDrawable(vanGogh.resources(), bitmap, fade, debugColor, From.MEMORY, vanGogh.context);
+                VanGoghDrawable drawable = new VanGoghDrawable(vanGogh.context, bitmap, From.MEMORY, fade, indicatorEnabled);
                 target.setImageDrawable(drawable);
                 this.callback.onSuccess(bitmap);
                 return;
             }
         }
-        Action<?> action = new ImageViewAction(this, target);
+        Action action = new ImageViewAction(this, target);
         vanGogh.enqueueAndSubmit(action);
     }
 }

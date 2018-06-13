@@ -88,10 +88,10 @@ public final class Task {
         static final int SCALE_TYPE_FIT_XY = 1 << 2;
 
         private Bitmap.Config config;
+        private int maxWidth;
+        private int maxHeight;
         private int targetWidth;
         private int targetHeight;
-        private boolean hasMaxSize;
-        private boolean hasResize;
         private int scaleType;
         private float rotationDegrees;
         private boolean hasRotation;
@@ -101,10 +101,10 @@ public final class Task {
 
         public Options() {
             config = Bitmap.Config.ARGB_8888;
+            maxWidth = 0;
+            maxHeight = 0;
             targetWidth = 0;
             targetHeight = 0;
-            hasMaxSize = false;
-            hasResize = false;
             scaleType = SCALE_TYPE_NO;
             rotationDegrees = 0F;
             hasRotation = false;
@@ -125,35 +125,50 @@ public final class Task {
         }
 
         public void maxSize(int maxWidth, int maxHeight) {
-            setSize(maxWidth, maxHeight, false);
+            if (maxWidth <= 0 || maxHeight <= 0) {
+                throw new IllegalArgumentException("maxWidth and maxHeight must greater than 0.");
+            }
+            this.maxWidth = maxWidth;
+            this.maxHeight = maxHeight;
         }
 
         public void clearMaxSize() {
-            hasMaxSize = false;
-            tryClearSize();
+            this.maxWidth = 0;
+            this.maxHeight = 0;
         }
 
         public boolean hasMaxSize() {
-            return hasMaxSize;
+            return maxWidth > 0 && maxHeight > 0;
         }
 
         public void resize(int width, int height) {
-            setSize(width, height, true);
-            scaleType = SCALE_TYPE_CENTER_INSIDE;
+            if (width <= 0 || height <= 0) {
+                throw new IllegalArgumentException("width and height must greater than 0.");
+            }
+            this.targetWidth = width;
+            this.targetHeight = height;
+            this.scaleType = SCALE_TYPE_NO;
         }
 
         public void clearResize() {
-            hasResize = false;
-            tryClearSize();
-            scaleType = SCALE_TYPE_NO;
+            this.targetWidth = 0;
+            this.targetHeight = 0;
         }
 
         public boolean hasResize() {
-            return hasResize;
+            return targetWidth > 0 && targetHeight > 0;
         }
 
         public boolean hasSize() {
-            return hasMaxSize || hasResize;
+            return hasMaxSize() || hasResize();
+        }
+
+        public int maxWidth() {
+            return maxWidth;
+        }
+
+        public int maxHeight() {
+            return maxHeight;
         }
 
         public int targetWidth() {
@@ -210,23 +225,6 @@ public final class Task {
 
         public float rotationPivotY() {
             return rotationPivotY;
-        }
-
-        private void setSize(int width, int height, boolean isResize) {
-            if (width <= 0 || height <= 0) {
-                throw new IllegalArgumentException("width <= 0 || height <= 0");
-            }
-            targetWidth = width;
-            targetHeight = height;
-            hasResize = isResize;
-            hasMaxSize = !hasResize;
-        }
-
-        private void tryClearSize() {
-            if (!hasMaxSize && !hasResize) {
-                targetWidth = 0;
-                targetHeight = 0;
-            }
         }
 
         @SuppressWarnings("CloneDoesntCallSuperClone")

@@ -31,8 +31,7 @@ import java.util.concurrent.Future;
 class Call implements Runnable {
     private final VanGogh vanGogh;
 
-    Action action;
-    List<Action> actions;
+    List<Action> actions = new ArrayList<>(4);
     Task task;
     Future<?> future;
 
@@ -43,24 +42,17 @@ class Call implements Runnable {
 
     Call(VanGogh vanGogh, Action action) {
         this.vanGogh = vanGogh;
-        this.action = action;
         this.task = action.task;
         this.count = vanGogh.maxTry;
+        this.actions.add(action);
     }
 
     void attach(Action action) {
-        if (actions == null) {
-            actions = new ArrayList<>(8);
-        }
         actions.add(action);
     }
 
     void detach(Action action) {
-        if (this.action == action) {
-            this.action = null;
-        } else if (this.actions != null) {
-            this.actions.remove(action);
-        }
+        actions.remove(action);
     }
 
     String key() {
@@ -68,8 +60,7 @@ class Call implements Runnable {
     }
 
     boolean tryCancel() {
-        return action == null
-                && (actions == null || actions.isEmpty())
+        return actions.isEmpty()
                 && future != null
                 && future.cancel(false);
     }
@@ -108,9 +99,9 @@ class Call implements Runnable {
         List<Interceptor> users = vanGogh.interceptors;
         List<Interceptor> interceptors = new ArrayList<>(users.size() + 7);
         interceptors.addAll(users);
-        interceptors.add(new QuickMemoryInterceptor(vanGogh.memoryCache));
+        interceptors.add(new KeyMemoryCacheInterceptor(vanGogh.memoryCache));
         interceptors.add(new TransformInterceptor());
-        interceptors.add(new MemoryCacheInterceptor(vanGogh.memoryCache));
+        interceptors.add(new StableKeyMemoryCacheInterceptor(vanGogh.memoryCache));
         interceptors.add(new StreamInterceptor());
         interceptors.add(new ContentInterceptor(vanGogh.context));
         if (vanGogh.diskCache != null) {
