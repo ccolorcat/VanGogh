@@ -22,12 +22,10 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 
-import java.util.Deque;
-import java.util.Iterator;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -36,20 +34,19 @@ import java.util.concurrent.ExecutorService;
  * GitHub: https://github.com/ccolorcat
  */
 class Dispatcher {
-    private static final int REQUEST_SUBMIT = 100;
-    static final int REQUEST_CANCEL = 101;
-    static final int REQUEST_SUCCESS = 102;
-    static final int REQUEST_FAILED = 103;
+    static final int ACTION_SUBMIT = 100;
+    static final int ACTION_CANCEL = 101;
+    static final int CALL_COMPLETE = 102;
+    static final int CALL_FAILED = 103;
+    static final int CALL_RETRY = 104;
+    static final int CALL_DELAY_NEXT_BATCH = 105;
 
     private final Handler mainHandler;
-    private final DispatchThread dispatchThread;
-    private final DispatchHandler dispatchHandler;
+    private final DispatcherThread dispatcherThread;
+    private final DispatcherHandler handler;
     private final ExecutorService executor;
-    //    private final Deque<Task> tasks = new LinkedList<>();
-    private final Deque<Call> waiting = new LinkedList<>();
-    //    private final Set<Call> running = new HashSet<>();
-    private final Map<String, Call> running = new WeakHashMap<>();
     private final Map<String, Call> callMap = new LinkedHashMap<>();
+    private final List<Call> batch = new ArrayList<>(4);
 
     private final VanGogh vanGogh;
     private volatile boolean pause = false;
@@ -58,114 +55,88 @@ class Dispatcher {
         this.vanGogh = vanGogh;
         this.executor = executor;
         this.mainHandler = mainHandler;
-        this.dispatchThread = new DispatchThread();
-        this.dispatchThread.start();
-        this.dispatchHandler = new DispatchHandler(dispatchThread.getLooper(), this);
+        this.dispatcherThread = new DispatcherThread();
+        this.dispatcherThread.start();
+        this.handler = new DispatcherHandler(dispatcherThread.getLooper(), this);
     }
 
     void dispatchSubmit(Action<?> action) {
-//        dispatchHandler.dispatchMessage(dispatchHandler.obtainMessage(REQUEST_SUBMIT, call));
+        Utils.checkMain();
+        action.prepare();
+        handler.sendMessage(handler.obtainMessage(ACTION_SUBMIT, action));
     }
 
     void dispatchCancel(Action<?> action) {
-//        dispatchHandler.dispatchMessage(dispatchHandler.obtainMessage(REQUEST_CANCEL, call));
+        handler.sendMessage(handler.obtainMessage(ACTION_CANCEL, action));
     }
 
     void dispatchSuccess(Call call) {
-//        dispatchHandler.dispatchMessage(dispatchHandler.obtainMessage(REQUEST_SUCCESS, call));
+        handler.sendMessage(handler.obtainMessage(CALL_COMPLETE, call));
     }
 
     void dispatchFailed(Call call) {
-//        dispatchHandler.dispatchMessage(dispatchHandler.obtainMessage(REQUEST_FAILED, call));
+        handler.sendMessage(handler.obtainMessage(CALL_FAILED, call));
     }
 
     void dispatchRetry(Call call) {
-
+        handler.sendMessage(handler.obtainMessage(CALL_RETRY, call));
     }
 
-    void performSubmit(Action<?> action) {
-        Call call = callMap.get(action.taskKey());
+    void performSubmit(Action action) {
+        Call call = callMap.get(action.key());
         if (call != null) {
             call.attach(action);
         } else {
             call = new Call(vanGogh, action);
             call.future = executor.submit(call);
-            callMap.put(action.taskKey(), call);
+            callMap.put(action.key(), call);
         }
     }
 
-    void performCancel(Action<?> action) {
-        final String key = action.taskKey();
+    void performCancel(Action action) {
+        final String key = action.key();
         Call call = callMap.get(key);
         if (call != null) {
             call.detach(action);
-            if (call.cancel()) {
+            if (call.tryCancel()) {
                 callMap.remove(key);
             }
         }
     }
 
-    void performSuccess(Call call) {
-//        if (call.isCanceled()) return;
-//        if (running.remove(call.task().uriKey()) == call) {
-//            final String key = call.task().taskKey();
-//            boolean batch = false;
-//            Iterator<Call> iterator = waiting.iterator();
-//            while (iterator.hasNext()) {
-//                Call realCall = iterator.next();
-//                if (realCall.task().taskKey().equals(key)) {
-//                    batch = true;
-//                    iterator.remove();
-//                }
-//            }
-//            deliver(call, true, batch);
-//        } else {
-//            LogUtils.e("performSuccess, but call recycled.");
-//        }
-//        promoteCall();
+    void performComplete(Call call) {
+        callMap.remove(call.key());
+        batch(call);
     }
 
-    void performFailed(Call call) {
-//        if (call.isCanceled()) return;
-//        if (running.remove(call.task().uriKey()) == call) {
-//            if (call.shouldRetry()) {
-//                reEnqueueWaiting(call);
-//            } else {
-//                deliver(call, false, false);
-//            }
-//        } else {
-//            LogUtils.e("performFailed and call recycled.");
-//        }
-//        promoteCall();
+    void performError(Call call) {
+        callMap.remove(call.key());
+        batch(call);
     }
 
-    private void deliver(Call call, boolean success, boolean batch) {
-        int what = !success ? VanGogh.DELIVER_FAILED : (batch ? VanGogh.DELIVER_SUCCESS_MULTIPLE : VanGogh.DELIVER_SUCCESS_SINGLE);
-        mainHandler.dispatchMessage(mainHandler.obtainMessage(what, call));
+    void performRetry(Call call) {
+        if (call.isCanceled()) {
+            return;
+        }
+        call.future = executor.submit(call);
     }
 
-    private void promoteCall() {
-//        Call call;
-//        while (!pause && running.size() < vanGogh.maxRunning && (call = pollWaiting()) != null) {
-//            String key = call.task().uriKey();
-//            if (!running.containsKey(key)) {
-//                running.put(key, call);
-//                call.future = executor.submit(call);
-//            } else {
-//                reEnqueueWaiting(call);
-//            }
-//        }
+    private void performBatchComplete() {
+        List<Call> copy = new ArrayList<>(batch);
+        batch.clear();
+        mainHandler.sendMessage(mainHandler.obtainMessage(VanGogh.CALL_BATCH_COMPLETE, copy));
     }
 
-    private Call pollWaiting() {
-        return vanGogh.mostRecentFirst ? waiting.pollLast() : waiting.pollFirst();
-    }
-
-    private void reEnqueueWaiting(Call call) {
-        if (vanGogh.mostRecentFirst) {
-            waiting.offerFirst(call);
-        } else {
-            waiting.offerLast(call);
+    private void batch(Call call) {
+        if (call.isCanceled()) {
+            return;
+        }
+        if (call.bitmap != null) {
+            call.bitmap.prepareToDraw();
+        }
+        batch.add(call);
+        if (!handler.hasMessages(CALL_DELAY_NEXT_BATCH)) {
+            handler.sendEmptyMessageDelayed(CALL_DELAY_NEXT_BATCH, 200);
         }
     }
 
@@ -180,36 +151,52 @@ class Dispatcher {
     void clear() {
     }
 
-    private static class DispatchThread extends HandlerThread {
-        DispatchThread() {
+    private static class DispatcherThread extends HandlerThread {
+        DispatcherThread() {
             super("Dispatcher", Process.THREAD_PRIORITY_BACKGROUND);
         }
     }
 
-    private static class DispatchHandler extends Handler {
+    private static class DispatcherHandler extends Handler {
         private final Dispatcher dispatcher;
 
-        DispatchHandler(Looper looper, Dispatcher dispatcher) {
+        DispatcherHandler(Looper looper, Dispatcher dispatcher) {
             super(looper);
             this.dispatcher = dispatcher;
         }
 
         @Override
         public void handleMessage(Message msg) {
-            Call call = (Call) msg.obj;
             switch (msg.what) {
-                case REQUEST_SUBMIT:
-//                    dispatcher.performSubmit(call);
+                case ACTION_SUBMIT: {
+                    Action action = (Action) msg.obj;
+                    dispatcher.performSubmit(action);
                     break;
-                case REQUEST_CANCEL:
-//                    dispatcher.performCancel(call);
+                }
+                case ACTION_CANCEL: {
+                    Action action = (Action) msg.obj;
+                    dispatcher.performCancel(action);
                     break;
-                case REQUEST_SUCCESS:
-                    dispatcher.performSuccess(call);
+                }
+                case CALL_COMPLETE: {
+                    Call call = (Call) msg.obj;
+                    dispatcher.performComplete(call);
                     break;
-                case REQUEST_FAILED:
-                    dispatcher.performFailed(call);
+                }
+                case CALL_RETRY: {
+                    Call call = (Call) msg.obj;
+                    dispatcher.performRetry(call);
                     break;
+                }
+                case CALL_FAILED: {
+                    Call call = (Call) msg.obj;
+                    dispatcher.performError(call);
+                    break;
+                }
+                case CALL_DELAY_NEXT_BATCH: {
+                    dispatcher.performBatchComplete();
+                    break;
+                }
                 default:
                     throw new IllegalArgumentException("received illegal code " + msg.what);
             }

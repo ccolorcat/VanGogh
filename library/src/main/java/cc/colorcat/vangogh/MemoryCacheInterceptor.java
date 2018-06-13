@@ -37,13 +37,13 @@ class MemoryCacheInterceptor implements Interceptor {
         Task task = chain.task();
         int fromPolicy = task.fromPolicy() & From.MEMORY.policy;
         if (fromPolicy != 0) {
-            Bitmap bitmap = memoryCache.get(task.uriKey());
+            Bitmap bitmap = memoryCache.get(task.stableKey());
             if (bitmap != null) {
                 return new Result(bitmap, From.MEMORY);
             }
         }
         Result result = chain.proceed(task);
-        memoryCache.save(task.uriKey(), result.bitmap());
+        memoryCache.save(task.stableKey(), result.bitmap());
         return result;
     }
 }

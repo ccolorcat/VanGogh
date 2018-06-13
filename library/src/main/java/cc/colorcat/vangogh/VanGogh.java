@@ -34,7 +34,6 @@ import android.text.TextUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -50,19 +49,16 @@ import java.util.concurrent.TimeUnit;
  */
 @SuppressWarnings("unused")
 public class VanGogh {
-    static final int DELIVER_SUCCESS_SINGLE = 0x12;
-    static final int DELIVER_SUCCESS_MULTIPLE = 0x13;
-    static final int DELIVER_FAILED = 0x14;
+    static final int CALL_BATCH_COMPLETE = 0x15;
 
     @SuppressLint("StaticFieldLeak")
     private static volatile VanGogh singleton;
 
-    private Map<Object, Action> targetToAction = new WeakHashMap<>();
-
+    private final Map<Object, Action> targetToAction;
     final Dispatcher dispatcher;
     final boolean mostRecentFirst;
     final int maxRunning;
-    final int retryCount;
+    final int maxTry;
     final int connectTimeOut;
     final int readTimeOut;
 
@@ -84,54 +80,11 @@ public class VanGogh {
 
     final boolean fade;
 
-    /**
-     * Set the global instance.
-     * NOTE: This method must be called before calls to {@link #with}.
-     */
-    public static void setSingleton(VanGogh vanGogh) {
-        synchronized (VanGogh.class) {
-            if (singleton != null) {
-                throw new IllegalStateException("Singleton instance already exists.");
-            }
-            singleton = vanGogh;
-        }
-    }
-
-    /**
-     * Get the global instance.
-     * If the global instance is null which will be initialized with default.
-     */
-    public static VanGogh with(Context ctx) {
-        if (singleton == null) {
-            synchronized (VanGogh.class) {
-                if (singleton == null) {
-                    singleton = new Builder(ctx).build();
-                }
-            }
-        }
-        return singleton;
-    }
-
-    public static VanGogh get() {
-        if (singleton == null) {
-            throw new IllegalStateException("The singleton is null.");
-        }
-        return singleton;
-    }
-
-    public static Uri toUri(Resources resources, @DrawableRes int resId) {
-        return new Uri.Builder()
-                .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
-                .authority(resources.getResourcePackageName(resId))
-                .appendPath(resources.getResourceTypeName(resId))
-                .appendPath(resources.getResourceEntryName(resId))
-                .build();
-    }
 
     private VanGogh(Builder builder, Cache<Bitmap> memoryCache, DiskCache diskCache) {
         mostRecentFirst = builder.mostRecentFirst;
         maxRunning = builder.maxRunning;
-        retryCount = builder.retryCount;
+        maxTry = builder.maxTry;
         connectTimeOut = builder.connectTimeOut;
         readTimeOut = builder.readTimeOut;
         interceptors = Utils.immutableList(builder.interceptors);
@@ -146,28 +99,57 @@ public class VanGogh {
         fade = builder.fade;
         this.memoryCache = memoryCache;
         this.diskCache = diskCache;
-        this.dispatcher = new Dispatcher(this, builder.executor, null); // todo
+        this.targetToAction = new WeakHashMap<>();
+        this.dispatcher = new Dispatcher(this, builder.executor, new MainHandler(this));
     }
 
-    void cancelExistingCall(Object target) {
-//        Call call = targetToAction.remove(target);
-//        if (call != null) {
-//            call.cancel();
-//            dispatcher.dispatchCancel(call);
-//        }
+    void cancelExistingAction(Object target) {
+        Action<?> action = targetToAction.remove(target);
+        if (action != null) {
+            action.cancel();
+            dispatcher.dispatchCancel(action);
+        }
     }
 
-    void enqueueAndSubmit(Action action) {
-//        Object target = call.action.target();
-//        if (target != null && targetToAction.get(target) != call) {
-//            cancelExistingCall(target);
-//            targetToAction.put(target, call);
-//        }
-//        submit(call);
+    void enqueueAndSubmit(Action<?> action) {
+        Object target = action.target();
+        if (target != null && targetToAction.get(target) != action) {
+            cancelExistingAction(target);
+            targetToAction.put(target, action);
+        }
+        submit(action);
     }
 
-    void submit(Call call) {
-//        dispatcher.dispatchSubmit(call);
+    void submit(Action<?> action) {
+        dispatcher.dispatchSubmit(action);
+    }
+
+    void complete(Call call) {
+        Bitmap result = call.bitmap;
+        Throwable cause = call.cause;
+        From from = call.from;
+
+        Action single = call.action;
+        if (single != null) {
+            deliverAction(result, from, cause, single);
+        }
+        List<Action> joined = call.actions;
+        if (joined != null && !joined.isEmpty()) {
+            for (int i = 0, size = joined.size(); i < size; ++i) {
+                deliverAction(result, from, cause, joined.get(i));
+            }
+        }
+    }
+
+    private void deliverAction(Bitmap result, From from, Throwable cause, Action action) {
+        if (action.isCanceled()) {
+            return;
+        }
+        if (result != null) {
+            action.complete(result, from);
+        } else {
+            action.error(cause);
+        }
     }
 
     /**
@@ -267,46 +249,72 @@ public class VanGogh {
     }
 
 
-    static class DeliverHandler extends Handler {
-        private final Map<Object, Call> targetToCall;
+    /**
+     * Set the global instance.
+     * NOTE: This method must be called before calls to {@link #with}.
+     */
+    public static void setSingleton(VanGogh vanGogh) {
+        synchronized (VanGogh.class) {
+            if (singleton != null) {
+                throw new IllegalStateException("Singleton instance already exists.");
+            }
+            singleton = vanGogh;
+        }
+    }
 
-        DeliverHandler(Map<Object, Call> targetToCall) {
+    /**
+     * Get the global instance.
+     * If the global instance is null which will be initialized with default.
+     */
+    public static VanGogh with(Context ctx) {
+        if (singleton == null) {
+            synchronized (VanGogh.class) {
+                if (singleton == null) {
+                    singleton = new Builder(ctx).build();
+                }
+            }
+        }
+        return singleton;
+    }
+
+    public static VanGogh get() {
+        if (singleton == null) {
+            throw new IllegalStateException("The singleton is null.");
+        }
+        return singleton;
+    }
+
+    public static Uri toUri(Resources resources, @DrawableRes int resId) {
+        return new Uri.Builder()
+                .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
+                .authority(resources.getResourcePackageName(resId))
+                .appendPath(resources.getResourceTypeName(resId))
+                .appendPath(resources.getResourceEntryName(resId))
+                .build();
+    }
+
+    static class MainHandler extends Handler {
+        private final VanGogh vanGogh;
+
+        MainHandler(VanGogh vanGogh) {
             super(Looper.getMainLooper());
-            this.targetToCall = targetToCall;
+            this.vanGogh = vanGogh;
         }
 
         @Override
         public void handleMessage(Message msg) {
-//            Call obj = (Call) msg.obj;
-//            final String key = obj.task().taskKey();
-//            final Result result = obj.result;
-//            switch (msg.what) {
-//                case DELIVER_SUCCESS_SINGLE:
-//                    Call call = targetToCall.remove(obj.action.target());
-//                    if (call != null) {
-//                        call.action.complete(result.bitmap(), result.from());
-//                    }
-//                    break;
-//                case DELIVER_SUCCESS_MULTIPLE:
-//                    Iterator<Map.Entry<Object, Call>> iterator = targetToCall.entrySet().iterator();
-//                    while (iterator.hasNext()) {
-//                        Map.Entry<Object, Call> entry = iterator.next();
-//                        Call value = entry.getValue();
-//                        if (key.equals(value.task().taskKey())) {
-//                            value.action.complete(result.bitmap(), result.from());
-//                            iterator.remove();
-//                        }
-//                    }
-//                    break;
-//                case DELIVER_FAILED:
-//                    Call failed = targetToCall.remove(key);
-//                    if (failed != null) {
-//                        failed.action.error(obj.cause);
-//                    }
-//                    break;
-//                default:
-//                    throw new IllegalArgumentException("received illegal code " + msg.what);
-//            }
+            switch (msg.what) {
+                case VanGogh.CALL_BATCH_COMPLETE: {
+                    @SuppressWarnings("unchecked")
+                    List<Call> calls = (List<Call>) msg.obj;
+                    for (int i = 0, size = calls.size(); i < size; ++i) {
+                        vanGogh.complete(calls.get(i));
+                    }
+                    break;
+                }
+                default:
+                    throw new AssertionError("Unknown handler message received: " + msg.what);
+            }
         }
     }
 
@@ -315,7 +323,7 @@ public class VanGogh {
         private ExecutorService executor;
         private boolean mostRecentFirst;
         private int maxRunning;
-        private int retryCount;
+        private int maxTry;
         private int connectTimeOut;
         private int readTimeOut;
 
@@ -340,7 +348,7 @@ public class VanGogh {
         public Builder(Context ctx) {
             mostRecentFirst = true;
             maxRunning = 4;
-            retryCount = 1;
+            maxTry = 1;
             connectTimeOut = 5000;
             readTimeOut = 5000;
             interceptors = new ArrayList<>(4);
@@ -388,14 +396,14 @@ public class VanGogh {
         }
 
         /**
-         * @param retryCount The maximum number of retries.
-         * @throws IllegalArgumentException if the retryCount less than 0.
+         * @param maxTry The maximum number of retries.
+         * @throws IllegalArgumentException if the maxTry less than 0.
          */
-        public Builder retryCount(int retryCount) {
-            if (retryCount < 0) {
-                throw new IllegalArgumentException("retryCount < 0");
+        public Builder maxTry(int maxTry) {
+            if (maxTry < 0) {
+                throw new IllegalArgumentException("maxTry < 0");
             }
-            this.retryCount = retryCount;
+            this.maxTry = maxTry;
             return this;
         }
 

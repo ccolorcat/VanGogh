@@ -287,7 +287,7 @@ class Utils {
     static Bitmap applyOptions(Bitmap result, Task.Options ops) {
         Matrix matrix = new Matrix();
         final int width = result.getWidth(), height = result.getHeight();
-        if (ops.hasSize()) {
+        if (ops.hasResize()) {
             final int reqWidth = ops.targetWidth(), reqHeight = ops.targetHeight();
             if (reqWidth != width && reqHeight != height
                     || reqWidth == width && reqHeight < height
@@ -306,8 +306,8 @@ class Utils {
         return Bitmap.createBitmap(result, 0, 0, width, height, matrix, true);
     }
 
-    static String createTaskKey(Creator creator) {
-        StringBuilder builder = new StringBuilder(creator.uriKey);
+    static String createKey(Creator creator) {
+        StringBuilder builder = new StringBuilder(creator.stableKey);
         Task.Options options = creator.options;
         if (options.hasMaxSize()) {
             builder.append("|maxSize:")
@@ -336,33 +336,6 @@ class Utils {
             builder.append('|').append(creator.transformations.get(i).getKey());
         }
         return builder.toString();
-    }
-
-    //    static String createKey(Task.Creator creator) {
-//        StringBuilder sb = new StringBuilder(creator.uriKey).append('@');
-//        Task.Options op = creator.options;
-//        if (op.hasSize()) {
-//            sb.append(op.hasMaxSize() ? "maxSize:" : "resize:")
-//                    .append(op.targetWidth()).append('x').append(op.targetHeight())
-//                    .append("scaleType:").append(op.scaleType());
-//
-//        }
-//        if (op.hasRotation()) {
-//            sb.append("rotation:").append(op.rotationDegrees());
-//            if (op.hasRotationPivot()) {
-//                sb.append("pivot:").append(op.rotationPivotX()).append("x").append(op.rotationPivotY());
-//            }
-//        }
-//        for (int i = 0, size = creator.transformations.size(); i < size; ++i) {
-//            sb.append(creator.transformations.get(i).getKey());
-//        }
-//        return sb.toString();
-//    }
-//
-    static void checkNotNull(Object object, String msg) {
-        if (object == null) {
-            throw new NullPointerException(msg);
-        }
     }
 
     static <T> T nullElse(T value, T defaultValue) {

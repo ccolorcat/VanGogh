@@ -44,7 +44,7 @@ class StreamInterceptor implements Interceptor {
             if (bitmap == null) {
                 throw new IOException("decode failed, uri = " + task.uri());
             }
-            if (options.hasSize() || options.hasRotation()) {
+            if (options.hasResize() || options.hasRotation()) {
                 bitmap = Utils.applyOptions(bitmap, options);
             }
         }

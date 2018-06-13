@@ -40,7 +40,7 @@ class DiskCacheInterceptor implements Interceptor {
         Task.Options options = task.options();
         int fromPolicy = task.fromPolicy() & From.DISK.policy;
         if (fromPolicy != 0) {
-            DiskCache.Snapshot snapshot = diskCache.getSnapshot(task.uriKey());
+            DiskCache.Snapshot snapshot = diskCache.getSnapshot(task.stableKey());
             Bitmap bitmap = decodeOrDelete(snapshot, options, false);
             if (bitmap != null) {
                 return new Result(bitmap, From.DISK);
@@ -50,7 +50,7 @@ class DiskCacheInterceptor implements Interceptor {
         Result result = chain.proceed(task);
         From resultFrom = result.from();
         if (resultFrom == From.NETWORK) {
-            DiskCache.Snapshot snapshot = diskCache.getSnapshot(task.uriKey());
+            DiskCache.Snapshot snapshot = diskCache.getSnapshot(task.stableKey());
             OutputStream os = snapshot.getOutputStream();
             if (os != null) {
                 InputStream is = result.stream();

@@ -17,7 +17,6 @@
 package cc.colorcat.vangogh;
 
 import android.graphics.Bitmap;
-import android.graphics.drawable.Drawable;
 import android.widget.ImageView;
 
 /**
@@ -43,17 +42,17 @@ class ImageViewAction extends Action<ImageView> {
     void complete(Bitmap result, From from) {
         ImageView target = target();
         if (target != null) {
-            target.setImageDrawable(new VanGoghDrawable(target.getResources(), result, fade, debugColor, from));
+            target.setImageDrawable(new VanGoghDrawable(target.getResources(), result, fade, debugColor, from, target.getContext()));
             callback.onSuccess(result);
         }
     }
 
     @Override
-    void error(Exception e) {
+    void error(Throwable cause) {
         ImageView target = this.target();
         if (target != null) {
             target.setImageDrawable(error);
-            callback.onError(e);
+            callback.onError(cause);
         }
     }
 }

@@ -35,7 +35,7 @@ import java.util.List;
 public final class Creator {
     private final VanGogh vanGogh;
     final Uri uri;
-    final String uriKey;
+    final String stableKey;
     int fromPolicy;
     int connectTimeOut;
     int readTimeOut;
@@ -46,12 +46,12 @@ public final class Creator {
     boolean fade;
     boolean debugColor;
     Callback callback;
-    String taskKey;
+    String key;
 
-    Creator(VanGogh vanGogh, Uri uri, String uriKey) {
+    Creator(VanGogh vanGogh, Uri uri, String stableKey) {
         this.vanGogh = vanGogh;
         this.uri = uri;
-        this.uriKey = uriKey;
+        this.stableKey = stableKey;
         this.fromPolicy = vanGogh.defaultFromPolicy;
         this.connectTimeOut = vanGogh.connectTimeOut;
         this.readTimeOut = vanGogh.readTimeOut;
@@ -212,21 +212,22 @@ public final class Creator {
             throw new IllegalArgumentException("target == null");
         }
         if (uri == Uri.EMPTY) {
-            vanGogh.cancelExistingCall(target);
+            vanGogh.cancelExistingAction(target);
             target.setImageDrawable(error);
             return;
         }
         this.callback = Utils.nullElse(callback, EmptyCallback.EMPTY);
-        taskKey = Utils.createTaskKey(this);
+        key = Utils.createKey(this);
         if ((fromPolicy & From.MEMORY.policy) != 0) {
-            Bitmap bitmap = vanGogh.obtainFromMemoryCache(taskKey);
+            Bitmap bitmap = vanGogh.obtainFromMemoryCache(key);
             if (bitmap != null) {
-                target.setImageBitmap(bitmap); // todo 改为 VanGoghDrawable
+                VanGoghDrawable drawable = new VanGoghDrawable(vanGogh.resources(), bitmap, false, debugColor, From.MEMORY, vanGogh.context);
+                target.setImageDrawable(drawable);
                 this.callback.onSuccess(bitmap);
                 return;
             }
         }
-        Action action = new ImageViewAction(this, target);
+        Action<?> action = new ImageViewAction(this, target);
         vanGogh.enqueueAndSubmit(action);
     }
 }

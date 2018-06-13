@@ -38,6 +38,7 @@ public class Client extends Application {
                 .defaultError(R.drawable.ic_error)
                 .defaultLoading(R.drawable.ic_loading)
                 .enableLog(BuildConfig.DEBUG)
+                .debug(BuildConfig.DEBUG)
                 .build();
         VanGogh.setSingleton(vanGogh);
     }

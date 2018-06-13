@@ -314,7 +314,7 @@ final class DiskCache {
         @Override
         public String toString() {
             return "Snapshot{" +
-                    "taskKey='" + key + '\'' +
+                    "key='" + key + '\'' +
                     ", readCount=" + readCount +
                     ", writing=" + writing +
                     ", committed=" + committed +

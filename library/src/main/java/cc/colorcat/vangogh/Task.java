@@ -29,8 +29,8 @@ import java.util.List;
 @SuppressWarnings("unused")
 public final class Task {
     private final Uri uri;
-    private final String uriKey;
-    private final String taskKey;
+    private final String stableKey;
+    private final String key;
     private final int fromPolicy;
     private final int connectTimeOut;
     private final int readTimeOut;
@@ -39,8 +39,8 @@ public final class Task {
 
     Task(Creator creator) {
         this.uri = creator.uri;
-        this.uriKey = creator.uriKey;
-        this.taskKey = creator.taskKey;
+        this.stableKey = creator.stableKey;
+        this.key = creator.key;
         this.fromPolicy = creator.fromPolicy;
         this.connectTimeOut = creator.connectTimeOut;
         this.readTimeOut = creator.readTimeOut;
@@ -52,12 +52,12 @@ public final class Task {
         return uri;
     }
 
-    public String uriKey() {
-        return uriKey;
+    public String stableKey() {
+        return stableKey;
     }
 
-    public String taskKey() {
-        return taskKey;
+    public String key() {
+        return key;
     }
 
     public int fromPolicy() {

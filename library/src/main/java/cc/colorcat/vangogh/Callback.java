@@ -27,5 +27,5 @@ public interface Callback {
 
     void onSuccess(Bitmap bitmap);
 
-    void onError(Exception cause);
+    void onError(Throwable cause);
 }

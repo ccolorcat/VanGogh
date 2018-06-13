@@ -31,30 +31,31 @@ import java.util.concurrent.Future;
 class Call implements Runnable {
     private final VanGogh vanGogh;
 
-    private int count = 0;
-    Action<?> action;
-    List<Action<?>> actions;
+    Action action;
+    List<Action> actions;
     Task task;
     Future<?> future;
 
-    Bitmap result;
+    private int count;
     From from;
-    Exception cause;
+    Bitmap bitmap;
+    Throwable cause;
 
-    Call(VanGogh vanGogh, Action<?> action) {
+    Call(VanGogh vanGogh, Action action) {
         this.vanGogh = vanGogh;
         this.action = action;
         this.task = action.task;
+        this.count = vanGogh.maxTry;
     }
 
-    void attach(Action<?> action) {
+    void attach(Action action) {
         if (actions == null) {
             actions = new ArrayList<>(8);
         }
         actions.add(action);
     }
 
-    void detach(Action<?> action) {
+    void detach(Action action) {
         if (this.action == action) {
             this.action = null;
         } else if (this.actions != null) {
@@ -62,16 +63,15 @@ class Call implements Runnable {
         }
     }
 
-    String getTaskKey() {
-        return task.taskKey();
+    String key() {
+        return task.key();
     }
 
-    boolean shouldRetry() {
-        return count <= vanGogh.retryCount;
-    }
-
-    boolean cancel() {
-        return actions.isEmpty() && future != null && future.cancel(false);
+    boolean tryCancel() {
+        return action == null
+                && (actions == null || actions.isEmpty())
+                && future != null
+                && future.cancel(false);
     }
 
     boolean isCanceled() {
@@ -82,20 +82,21 @@ class Call implements Runnable {
     public void run() {
         try {
             Result result = getResultWithInterceptor();
-            this.result = result.bitmap();
-            this.from = result.from();
+            bitmap = result.bitmap();
+            from = result.from();
         } catch (IOException e) {
             cause = e;
-            LogUtils.e(e);
         } catch (IndexOutOfBoundsException e) {
             cause = new UnsupportedOperationException("unsupported uri: " + task.uri());
-            LogUtils.e(e);
+        } catch (OutOfMemoryError e) {
+            cause = e;
         } catch (Exception e) {
             cause = e;
-            LogUtils.e(e);
         } finally {
-            if (result != null) {
+            if (bitmap != null) {
                 vanGogh.dispatcher.dispatchSuccess(this);
+            } else if (cause instanceof IOException && count > 0) {
+                vanGogh.dispatcher.dispatchRetry(this);
             } else {
                 vanGogh.dispatcher.dispatchFailed(this);
             }
@@ -103,13 +104,11 @@ class Call implements Runnable {
     }
 
     private Result getResultWithInterceptor() throws IOException {
-        ++count;
+        --count;
         List<Interceptor> users = vanGogh.interceptors;
         List<Interceptor> interceptors = new ArrayList<>(users.size() + 7);
         interceptors.addAll(users);
-        if (vanGogh.debugColor) {
-            interceptors.add(new WatermarkInterceptor());
-        }
+        interceptors.add(new QuickMemoryInterceptor(vanGogh.memoryCache));
         interceptors.add(new TransformInterceptor());
         interceptors.add(new MemoryCacheInterceptor(vanGogh.memoryCache));
         interceptors.add(new StreamInterceptor());

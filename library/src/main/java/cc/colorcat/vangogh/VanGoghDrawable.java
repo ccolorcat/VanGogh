@@ -16,9 +16,13 @@
 
 package cc.colorcat.vangogh;
 
+import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.drawable.BitmapDrawable;
 
 /**
@@ -27,25 +31,27 @@ import android.graphics.drawable.BitmapDrawable;
  * GitHub: https://github.com/ccolorcat
  */
 public class VanGoghDrawable extends BitmapDrawable {
+    private static final Paint DEBUG_PAINT;
+
     private final boolean fade;
     private final boolean debugColor;
     private final From from;
+    private float density;
+
     private int maxAlpha = 0xFF;
     private int alpha = 0; // [0, maxAlpha]
 
-    public VanGoghDrawable(Resources res, Bitmap bitmap) {
-        this(res, bitmap, true);
+    static {
+        DEBUG_PAINT = new Paint();
+        DEBUG_PAINT.setStyle(Paint.Style.FILL);
     }
 
-    public VanGoghDrawable(Resources res, Bitmap bitmap, boolean animating) {
-        this(res, bitmap, animating, false, From.MEMORY);
-    }
-
-    public VanGoghDrawable(Resources res, Bitmap bitmap, boolean fade, boolean debugColor, From from) {
+    VanGoghDrawable(Resources res, Bitmap bitmap, boolean fade, boolean debugColor, From from, Context context) {
         super(res, bitmap);
         this.fade = fade;
         this.debugColor = debugColor;
         this.from = from;
+        this.density = context.getResources().getDisplayMetrics().density;
     }
 
     @Override
@@ -53,8 +59,13 @@ public class VanGoghDrawable extends BitmapDrawable {
         if (fade && alpha < maxAlpha) {
             alpha += 10;
             super.setAlpha(Math.min(alpha, maxAlpha));
+            super.draw(canvas);
+        } else {
+            super.draw(canvas);
+            if (debugColor) {
+                drawDebugColor(canvas);
+            }
         }
-        super.draw(canvas);
     }
 
     @Override
@@ -65,5 +76,23 @@ public class VanGoghDrawable extends BitmapDrawable {
         } else if (alpha >= 0) {
             maxAlpha = alpha;
         }
+    }
+
+    private void drawDebugColor(Canvas canvas) {
+        DEBUG_PAINT.setColor(Color.WHITE);
+        Path path = getTrianglePath(0, 0, (int) (16 * density));
+        canvas.drawPath(path, DEBUG_PAINT);
+
+        DEBUG_PAINT.setColor(from.debugColor);
+        path = getTrianglePath(0, 0, (int) (15 * density));
+        canvas.drawPath(path, DEBUG_PAINT);
+    }
+
+    private static Path getTrianglePath(int startX, int startY, int width) {
+        Path path = new Path();
+        path.moveTo(startX, startY);
+        path.lineTo(startX + width, startY);
+        path.lineTo(startX, startY + width);
+        return path;
     }
 }

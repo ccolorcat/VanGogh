@@ -51,8 +51,8 @@ abstract class Action<T> {
         return target.get();
     }
 
-    String taskKey() {
-        return task.taskKey();
+    String key() {
+        return task.key();
     }
 
     void cancel() {
@@ -67,5 +67,5 @@ abstract class Action<T> {
 
     abstract void complete(Bitmap result, From from);
 
-    abstract void error(Exception e);
+    abstract void error(Throwable cause);
 }
