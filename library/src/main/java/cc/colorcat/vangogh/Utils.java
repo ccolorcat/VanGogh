@@ -147,7 +147,7 @@ class Utils {
         }
     }
 
-    static void close(Closeable closeable) {
+    private static void close(Closeable closeable) {
         if (closeable != null) {
             try {
                 closeable.close();
@@ -216,14 +216,6 @@ class Utils {
             LogUtils.e(e);
         }
         return result;
-    }
-
-    static Bitmap decodeStreamAndClose(InputStream is) {
-        try {
-            return BitmapFactory.decodeStream(is);
-        } finally {
-            close(is);
-        }
     }
 
     private static byte[] toBytesAndClose(InputStream is) throws IOException {
@@ -312,7 +304,15 @@ class Utils {
         return !onlyScaleDown || inWidth > targetWidth || inHeight > targetHeight;
     }
 
-    static Bitmap decodeStreamAndClose(InputStream is, Task.Options to, boolean scaleDown) throws IOException {
+    private static Bitmap decodeStreamAndClose(InputStream is) {
+        try {
+            return BitmapFactory.decodeStream(is);
+        } finally {
+            close(is);
+        }
+    }
+
+    private static Bitmap decodeStreamAndClose(InputStream is, Task.Options to, boolean scaleDown) throws IOException {
         BufferedInputStream bis = null;
         InputStream resettable = is;
         try {
@@ -345,132 +345,6 @@ class Utils {
             inSampleSize = scaleDown ? Math.max(widthRatio, heightRatio) : Math.min(widthRatio, heightRatio);
         }
         return inSampleSize;
-    }
-
-    static Bitmap decodeStreamAndClose(InputStream is, Task.Options to) throws IOException {
-        BufferedInputStream bis = null;
-        InputStream resettable = is;
-        try {
-            if (resettable.available() == 0) {
-                resettable = new ByteArrayInputStream(toBytesAndClose(is));
-            }
-            bis = new BufferedInputStream(resettable);
-            bis.mark(bis.available());
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inJustDecodeBounds = true;
-            options.inPreferredConfig = to.config();
-            BitmapFactory.decodeStream(bis, null, options);
-            bis.reset();
-            options.inSampleSize = calculateInSampleSize(options, to);
-            options.inJustDecodeBounds = false;
-            return BitmapFactory.decodeStream(bis, null, options);
-        } finally {
-            close(bis);
-            close(resettable);
-        }
-    }
-
-    private static int calculateInSampleSize(BitmapFactory.Options bo, Task.Options to) {
-        final int maxWidth = to.targetWidth(), maxHeight = to.targetHeight();
-        final int width = bo.outWidth, height = bo.outHeight;
-        int inSampleSize = 1;
-        while (width / inSampleSize > maxWidth && height / inSampleSize > maxHeight) {
-            inSampleSize <<= 1;
-        }
-        return inSampleSize;
-    }
-
-    static Bitmap transformResult(Bitmap result, Task.Options ops, List<Transformation> transformations) {
-        Bitmap newResult = result;
-        if (ops.hasSize() || ops.hasRotation()) {
-            newResult = applyOptions(result, ops);
-        }
-        for (Transformation transformation : transformations) {
-            newResult = transformation.transform(newResult);
-        }
-        return newResult;
-    }
-
-    // todo 需要调整 resize 策略
-    static Bitmap applyOptions(Bitmap result, Task.Options ops) {
-        Matrix matrix = new Matrix();
-        final int width = result.getWidth(), height = result.getHeight();
-        if (ops.hasResize()) {
-            final int reqWidth = ops.targetWidth(), reqHeight = ops.targetHeight();
-            if (reqWidth != width && reqHeight != height
-                    || reqWidth == width && reqHeight < height
-                    || reqHeight == height && reqWidth < width) {
-                float scaleX = ((float) reqWidth) / width;
-                float scaleY = ((float) reqHeight) / height;
-                float scale = Math.min(scaleX, scaleY);
-                matrix.postScale(scale, scale);
-            }
-        }
-        if (ops.hasRotationPivot()) {
-            matrix.postRotate(ops.rotationDegrees(), ops.rotationPivotX(), ops.rotationPivotY());
-        } else if (ops.hasRotation()) {
-            matrix.postRotate(ops.rotationDegrees());
-        }
-        return Bitmap.createBitmap(result, 0, 0, width, height, matrix, true);
-    }
-
-    static Bitmap applyTransformations(Bitmap result, Task.Options ops) {
-        Matrix matrix = new Matrix();
-        if (ops.hasRotation()) {
-            if (ops.hasRotationPivot()) {
-                matrix.setRotate(ops.rotationDegrees(), ops.rotationPivotX(), ops.rotationPivotY());
-            } else {
-                matrix.setRotate(ops.rotationDegrees());
-            }
-        }
-
-        if (ops.hasResize()) {
-            final int width = result.getWidth(), height = result.getHeight();
-            final int targetWidth = ops.targetWidth(), targetHeight = ops.targetHeight();
-            if (width != targetWidth || height != targetHeight) {
-                final float targetRatio = targetWidth / (float) targetHeight;
-                final float ratio = width / (float) height;
-                int drawX = 0, drawY = 0;
-                int drawWidth = targetWidth, drawHeight = targetHeight;
-
-                final int scaleType = ops.scaleType();
-                float scaleX, scaleY;
-                switch (scaleType) {
-                    case Task.Options.SCALE_TYPE_CENTER_CROP: {
-                        if (ratio < targetRatio) {
-                            scaleX = scaleY = targetWidth / (float) width;
-                            drawY = (int) ((height * scaleY - targetHeight) / 2);
-                        } else {
-                            scaleX = scaleY = targetHeight / (float) height;
-                            drawX = (int) ((width * scaleX - targetWidth) / 2);
-                        }
-                        break;
-                    }
-                    case Task.Options.SCALE_TYPE_CENTER_INSIDE: {
-                        if (ratio < targetRatio) {
-                            scaleX = scaleY = targetHeight / (float) height;
-                            drawWidth = (int) (width * scaleX);
-                            drawHeight = (int) (height * scaleY);
-                        } else {
-                            scaleX = scaleY = targetWidth / (float) width;
-                            drawWidth = (int) (width * scaleX);
-                            drawHeight = (int) (height * scaleY);
-                        }
-                        break;
-                    }
-                    case Task.Options.SCALE_TYPE_FIT_XY: {
-                        scaleX = targetWidth / (float) width;
-                        scaleY = targetHeight / (float) height;
-                        break;
-                    }
-                    default:
-                        throw new IllegalArgumentException();
-                }
-                matrix.preScale(scaleX, scaleY);
-                return Bitmap.createBitmap(result, drawX, drawY, drawWidth, drawHeight, matrix, true);
-            }
-        }
-        return Bitmap.createBitmap(result, 0, 0, result.getWidth(), result.getHeight(), matrix, true);
     }
 
     static String createKey(Creator creator) {

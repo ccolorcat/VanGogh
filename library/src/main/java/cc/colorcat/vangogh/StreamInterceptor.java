@@ -36,18 +36,10 @@ class StreamInterceptor implements Interceptor {
         if (bitmap == null) {
             InputStream is = result.stream();
             Task.Options options = task.options();
-//            if (options.hasSize() || options.hasRotation()) {
-//                bitmap = Utils.decodeStreamAndClose(is, options);
-//            } else {
-//                bitmap = Utils.decodeStreamAndClose(is);
-//            }
             bitmap = Utils.transformStreamAndClose(is, options);
             if (bitmap == null) {
                 throw new IOException("decode failed, uri = " + task.uri());
             }
-//            if (options.hasResize() || options.hasRotation()) {
-//                bitmap = Utils.applyOptions(bitmap, options);
-//            }
         }
         return new Result(bitmap, result.from());
     }
