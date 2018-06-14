@@ -30,21 +30,21 @@ import java.util.concurrent.Future;
  */
 class Call implements Runnable {
     private final VanGogh vanGogh;
-
-    List<Action> actions = new ArrayList<>(4);
-    Task task;
-    Future<?> future;
-
     private int count;
+
+    final List<Action> actions = new ArrayList<>(4);
+    final Task task;
+
+    Future<?> future;
     From from;
     Bitmap bitmap;
     Throwable cause;
 
     Call(VanGogh vanGogh, Action action) {
         this.vanGogh = vanGogh;
-        this.task = action.task;
         this.count = vanGogh.maxTry;
         this.actions.add(action);
+        this.task = action.task;
     }
 
     void attach(Action action) {
@@ -90,6 +90,9 @@ class Call implements Runnable {
                 vanGogh.dispatcher.dispatchRetry(this);
             } else {
                 vanGogh.dispatcher.dispatchFailed(this);
+            }
+            if (cause != null) {
+                LogUtils.e(cause);
             }
         }
     }

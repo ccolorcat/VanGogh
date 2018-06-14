@@ -213,24 +213,6 @@ public class VanGogh {
     }
 
     /**
-     * Pause all tasks.
-     *
-     * @see #resume()
-     */
-    public void pause() {
-//        dispatcher.pause();
-    }
-
-    /**
-     * Resume all tasks.
-     *
-     * @see #pause()
-     */
-    public void resume() {
-//        dispatcher.resume();
-    }
-
-    /**
      * Clear all pending tasks.
      */
     public void clear() {
@@ -295,7 +277,8 @@ public class VanGogh {
                 .build();
     }
 
-    static class MainHandler extends Handler {
+
+    private static class MainHandler extends Handler {
         private final VanGogh vanGogh;
 
         MainHandler(VanGogh vanGogh) {
@@ -315,7 +298,12 @@ public class VanGogh {
                     break;
                 }
                 case VanGogh.ACTION_BATCH_RESUME: {
-
+                    @SuppressWarnings("unchecked")
+                    List<Action> actions = (List<Action>) msg.obj;
+                    for (int i = 0, size = actions.size(); i < size; ++i) {
+                        Action action = actions.get(i);
+                        vanGogh.resumeAction(action);
+                    }
                     break;
                 }
                 default:

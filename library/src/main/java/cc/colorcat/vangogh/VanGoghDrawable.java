@@ -58,12 +58,10 @@ public class VanGoghDrawable extends BitmapDrawable {
         if (fade && from != From.MEMORY && alpha < maxAlpha) {
             alpha += 10;
             super.setAlpha(Math.min(alpha, maxAlpha));
-            super.draw(canvas);
-        } else {
-            super.draw(canvas);
-            if (indicatorEnabled) {
-                drawDebugColor(canvas);
-            }
+        }
+        super.draw(canvas);
+        if (indicatorEnabled) {
+            drawDebugColor(canvas);
         }
     }
 

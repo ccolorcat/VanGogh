@@ -32,6 +32,6 @@ public class BaseTransformation implements Transformation {
     @Override
     public String getKey() {
         Class clazz = getClass();
-        return clazz.getSimpleName() + clazz.getPackage().getName();
+        return clazz.getSimpleName() + "." + clazz.getPackage().getName();
     }
 }

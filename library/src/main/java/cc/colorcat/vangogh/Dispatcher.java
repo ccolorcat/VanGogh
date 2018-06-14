@@ -16,7 +16,6 @@
 
 package cc.colorcat.vangogh;
 
-import android.drm.DrmStore;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -98,7 +97,7 @@ class Dispatcher {
         handler.sendMessage(handler.obtainMessage(TAG_RESUME, tag));
     }
 
-    void performSubmit(Action action) {
+    private void performSubmit(Action action) {
         Call call = callMap.get(action.key());
         if (call != null) {
             call.attach(action);
@@ -109,7 +108,7 @@ class Dispatcher {
         }
     }
 
-    void performCancel(Action action) {
+    private void performCancel(Action action) {
         final String key = action.key();
         Call call = callMap.get(key);
         if (call != null) {
@@ -120,24 +119,24 @@ class Dispatcher {
         }
     }
 
-    void performComplete(Call call) {
+    private void performComplete(Call call) {
         callMap.remove(call.key());
         batch(call);
     }
 
-    void performError(Call call) {
+    private void performError(Call call) {
         callMap.remove(call.key());
         batch(call);
     }
 
-    void performRetry(Call call) {
+    private void performRetry(Call call) {
         if (call.isCanceled()) {
             return;
         }
         call.future = executor.submit(call);
     }
 
-    void performPauseTag(Object tag) {
+    private void performPauseTag(Object tag) {
         if (!pausedTags.add(tag)) {
             return;
         }
@@ -161,7 +160,7 @@ class Dispatcher {
         }
     }
 
-    void performResumeTag(Object tag) {
+    private void performResumeTag(Object tag) {
         if (!pausedTags.remove(tag)) {
             return;
         }
@@ -200,16 +199,18 @@ class Dispatcher {
         }
     }
 
+
     private static class DispatcherThread extends HandlerThread {
         DispatcherThread() {
             super("Dispatcher", Process.THREAD_PRIORITY_BACKGROUND);
         }
     }
 
+
     private static class DispatcherHandler extends Handler {
         private final Dispatcher dispatcher;
 
-        DispatcherHandler(Looper looper, Dispatcher dispatcher) {
+        private DispatcherHandler(Looper looper, Dispatcher dispatcher) {
             super(looper);
             this.dispatcher = dispatcher;
         }
@@ -255,7 +256,7 @@ class Dispatcher {
                     break;
                 }
                 default:
-                    throw new IllegalArgumentException("received illegal code " + msg.what);
+                    throw new AssertionError("Illegal message received: " + msg.what);
             }
         }
     }
