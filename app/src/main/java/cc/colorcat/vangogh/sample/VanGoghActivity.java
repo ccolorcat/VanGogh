@@ -54,6 +54,7 @@ import cc.colorcat.vangogh.VanGogh;
 public class VanGoghActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Result<List<Course>>> {
     private static final int LOADER_ID = 23;
 
+    private final Object mTag = "VanGogh";
     private List<Course> mData = new ArrayList<>();
     private SwipeRefreshLayout mRefreshLayout;
     private RvAdapter mAdapter;
@@ -65,7 +66,7 @@ public class VanGoghActivity extends AppCompatActivity implements LoaderManager.
 
         RecyclerView rv = findViewById(R.id.rv_item);
         rv.setLayoutManager(new LinearLayoutManager(this));
-        rv.addOnScrollListener(VanGoghOnScrollListener.get());
+        rv.addOnScrollListener(VanGoghOnScrollListener.get(mTag));
         mAdapter = new CourseAdapter(mData, R.layout.item_course);
         rv.setAdapter(mAdapter);
 
