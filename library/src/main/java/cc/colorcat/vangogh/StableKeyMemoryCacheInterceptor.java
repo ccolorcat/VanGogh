@@ -43,7 +43,10 @@ class StableKeyMemoryCacheInterceptor implements Interceptor {
             }
         }
         Result result = chain.proceed(task);
-        memoryCache.save(task.stableKey(), result.bitmap());
+        Task.Options ops = task.options();
+        if (!ops.hasResize() && !ops.hasRotation()) {
+            memoryCache.save(task.stableKey(), result.bitmap());
+        }
         return result;
     }
 }

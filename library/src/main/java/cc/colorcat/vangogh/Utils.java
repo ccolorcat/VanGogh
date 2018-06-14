@@ -240,6 +240,113 @@ class Utils {
         }
     }
 
+    static Bitmap transformStreamAndClose(InputStream is, Task.Options to) throws IOException {
+        boolean scaleDown = to.hasMaxSize();
+        Bitmap result = !to.hasSize() ? decodeStreamAndClose(is) : decodeStreamAndClose(is, to, scaleDown);
+        if (to.hasResize() || to.hasRotation()) {
+            result = applyOptions(result, to, scaleDown);
+        }
+        return result;
+    }
+
+    private static Bitmap applyOptions(Bitmap result, Task.Options to, boolean onlyScaleDown) {
+        int inWidth = result.getWidth(), inHeight = result.getHeight();
+        int drawX = 0, drawY = 0;
+        int drawWidth = inWidth, drawHeight = inHeight;
+        Matrix matrix = new Matrix();
+        int targetWidth = to.targetWidth(), targetHeight = to.targetHeight();
+        if (to.hasRotationPivot()) {
+            matrix.setRotate(to.rotationDegrees(), to.rotationPivotX(), to.rotationPivotY());
+        } else if (to.hasRotation()) {
+            matrix.setRotate(to.rotationDegrees());
+        }
+        final int scaleType = to.scaleType();
+        switch (scaleType) {
+            case Task.Options.SCALE_TYPE_CENTER_CROP: {
+                float widthRatio = targetWidth / (float) inWidth;
+                float heightRatio = targetHeight / (float) inHeight;
+                float scaleX, scaleY;
+                if (widthRatio > heightRatio) {
+                    int newSize = (int) Math.ceil(inHeight * (heightRatio / widthRatio));
+                    drawY = (inHeight - newSize) / 2;
+                    drawHeight = newSize;
+                    scaleX = widthRatio;
+                    scaleY = targetHeight / (float) drawHeight;
+                } else {
+                    int newSize = (int) Math.ceil(inWidth * (widthRatio / heightRatio));
+                    drawX = (inWidth - newSize) / 2;
+                    drawWidth = newSize;
+                    scaleX = targetWidth / (float) drawWidth;
+                    scaleY = heightRatio;
+                }
+                if (shouldResize(onlyScaleDown, inWidth, inHeight, targetWidth, targetHeight)) {
+                    matrix.preScale(scaleX, scaleY);
+                }
+                break;
+            }
+            case Task.Options.SCALE_TYPE_CENTER_INSIDE: {
+                float widthRatio = targetWidth / (float) inWidth;
+                float heightRatio = targetHeight / (float) inHeight;
+                float scale = widthRatio < heightRatio ? widthRatio : heightRatio;
+                if (shouldResize(onlyScaleDown, inWidth, inHeight, targetWidth, targetHeight)) {
+                    matrix.preScale(scale, scale);
+                }
+                break;
+            }
+            case Task.Options.SCALE_TYPE_FIT_XY: {
+                float sx = targetWidth / (float) inWidth;
+                float sy = targetHeight / (float) inHeight;
+                if (shouldResize(onlyScaleDown, inWidth, inHeight, targetWidth, targetHeight)) {
+                    matrix.preScale(sx, sy);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+        return Bitmap.createBitmap(result, drawX, drawY, drawWidth, drawHeight, matrix, true);
+    }
+
+
+    private static boolean shouldResize(boolean onlyScaleDown, int inWidth, int inHeight, int targetWidth, int targetHeight) {
+        return !onlyScaleDown || inWidth > targetWidth || inHeight > targetHeight;
+    }
+
+    static Bitmap decodeStreamAndClose(InputStream is, Task.Options to, boolean scaleDown) throws IOException {
+        BufferedInputStream bis = null;
+        InputStream resettable = is;
+        try {
+            if (resettable.available() == 0) {
+                resettable = new ByteArrayInputStream(toBytesAndClose(is));
+            }
+            bis = new BufferedInputStream(resettable);
+            bis.mark(bis.available());
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            options.inPreferredConfig = to.config();
+            BitmapFactory.decodeStream(bis, null, options);
+            bis.reset();
+            options.inSampleSize = calculateInSampleSize(options, to, scaleDown);
+            options.inJustDecodeBounds = false;
+            return BitmapFactory.decodeStream(bis, null, options);
+        } finally {
+            close(bis);
+            close(resettable);
+        }
+    }
+
+    private static int calculateInSampleSize(BitmapFactory.Options bo, Task.Options to, boolean scaleDown) {
+        int inSampleSize = 1;
+        final int reqWidth = to.targetWidth(), reqHeight = to.targetHeight();
+        final int width = bo.outWidth, height = bo.outHeight;
+        if (width > reqWidth || height > reqHeight) {
+            int widthRatio = (int) Math.floor((float) width / (float) reqWidth);
+            int heightRatio = (int) Math.floor((float) height / (float) reqHeight);
+            inSampleSize = scaleDown ? Math.max(widthRatio, heightRatio) : Math.min(widthRatio, heightRatio);
+        }
+        return inSampleSize;
+    }
+
     static Bitmap decodeStreamAndClose(InputStream is, Task.Options to) throws IOException {
         BufferedInputStream bis = null;
         InputStream resettable = is;
@@ -264,7 +371,7 @@ class Utils {
     }
 
     private static int calculateInSampleSize(BitmapFactory.Options bo, Task.Options to) {
-        final int maxWidth = to.maxWidth(), maxHeight = to.maxHeight();
+        final int maxWidth = to.targetWidth(), maxHeight = to.targetHeight();
         final int width = bo.outWidth, height = bo.outHeight;
         int inSampleSize = 1;
         while (width / inSampleSize > maxWidth && height / inSampleSize > maxHeight) {

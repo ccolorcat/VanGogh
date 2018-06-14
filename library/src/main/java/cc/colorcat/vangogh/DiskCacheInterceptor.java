@@ -71,11 +71,12 @@ class DiskCacheInterceptor implements Interceptor {
         Bitmap result = null;
         InputStream is = snapshot.getInputStream();
         if (is != null) {
-            if (ops.hasMaxSize()) {
-                result = Utils.decodeStreamAndClose(is, ops);
-            } else {
-                result = Utils.decodeStreamAndClose(is);
-            }
+//            if (ops.hasMaxSize()) {
+//                result = Utils.decodeStreamAndClose(is, ops);
+//            } else {
+//                result = Utils.decodeStreamAndClose(is);
+//            }
+            result = Utils.transformStreamAndClose(is, ops);
             if (result == null && !canThrow) {
                 snapshot.requireDelete();
             }

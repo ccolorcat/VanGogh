@@ -55,7 +55,7 @@ public class VanGoghDrawable extends BitmapDrawable {
 
     @Override
     public void draw(Canvas canvas) {
-        if (fade && alpha < maxAlpha) {
+        if (fade && from != From.MEMORY && alpha < maxAlpha) {
             alpha += 10;
             super.setAlpha(Math.min(alpha, maxAlpha));
             super.draw(canvas);
