@@ -29,6 +29,7 @@ import java.lang.ref.WeakReference;
  */
 abstract class Action<T> {
     private final WeakReference<T> target;
+    final String key;
     final Task task;
     final Drawable loading;
     final Drawable error;
@@ -39,28 +40,21 @@ abstract class Action<T> {
 
     private boolean canceled = false;
 
-    Action(Creator creator, T target) {
+    Action(Creator creator, T target, Callback callback) {
         this.target = new WeakReference<>(target);
-        this.task = new Task(creator);
+        this.key = Utils.createKey(creator);
+        this.task = new Task(creator, key);
         this.loading = creator.loading;
         this.error = creator.error;
         this.fade = creator.fade;
         this.indicatorEnabled = creator.indicatorEnabled;
-        this.callback = creator.callback;
+        this.callback = callback != null ? callback : EmptyCallback.EMPTY;
         this.tag = creator.tag;
     }
 
     @Nullable
     T target() {
         return target.get();
-    }
-
-    String key() {
-        return task.key();
-    }
-
-    Object tag() {
-        return tag;
     }
 
     void cancel() {

@@ -136,7 +136,7 @@ public class VanGogh {
     void resumeAction(Action action) {
         Bitmap bitmap = null;
         if ((action.task.fromPolicy() & From.MEMORY.policy) != 0) {
-            bitmap = obtainFromMemoryCache(action.key());
+            bitmap = obtainFromMemoryCache(action.key);
         }
         if (bitmap != null) {
             deliverAction(bitmap, From.MEMORY, null, action);

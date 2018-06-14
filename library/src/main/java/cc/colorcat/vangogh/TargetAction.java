@@ -27,8 +27,8 @@ import android.graphics.Bitmap;
 class TargetAction extends Action<Target> {
     private final Context context;
 
-    TargetAction(Creator creator, Target target, Context context) {
-        super(creator, target);
+    TargetAction(Creator creator, Target target, Context context, Callback callback) {
+        super(creator, target, callback);
         this.context = context;
     }
 

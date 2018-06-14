@@ -97,24 +97,31 @@ class Dispatcher {
     }
 
     private void performSubmit(Action action) {
-        Call call = callMap.get(action.key());
+        if (pausedTags.contains(action.tag)) {
+            pausedActions.put(action.target(), action);
+            return;
+        }
+        Call call = callMap.get(action.key);
         if (call != null) {
             call.attach(action);
         } else {
             call = new Call(vanGogh, action);
+            callMap.put(action.key, call);
             call.future = executor.submit(call);
-            callMap.put(action.key(), call);
         }
     }
 
     private void performCancel(Action action) {
-        final String key = action.key();
+        final String key = action.key;
         Call call = callMap.get(key);
         if (call != null) {
             call.detach(action);
             if (call.tryCancel()) {
                 callMap.remove(key);
             }
+        }
+        if (pausedTags.contains(action.tag)) {
+            pausedActions.remove(action.target());
         }
     }
 

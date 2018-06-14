@@ -27,6 +27,7 @@ import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.widget.ImageView;
 
 import com.google.gson.Gson;
@@ -53,8 +54,8 @@ import cc.colorcat.vangogh.VanGogh;
  */
 public class VanGoghActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Result<List<Course>>> {
     private static final int LOADER_ID = 23;
+    private static final String TAG = "VanGogh";
 
-    private final Object mTag = "VanGogh";
     private List<Course> mData = new ArrayList<>();
     private SwipeRefreshLayout mRefreshLayout;
     private RvAdapter mAdapter;
@@ -66,7 +67,7 @@ public class VanGoghActivity extends AppCompatActivity implements LoaderManager.
 
         RecyclerView rv = findViewById(R.id.rv_item);
         rv.setLayoutManager(new LinearLayoutManager(this));
-        rv.addOnScrollListener(VanGoghOnScrollListener.get(mTag));
+        rv.addOnScrollListener(VanGoghOnScrollListener.get(TAG));
         mAdapter = new CourseAdapter(mData, R.layout.item_course);
         rv.setAdapter(mAdapter);
 
@@ -117,7 +118,8 @@ public class VanGoghActivity extends AppCompatActivity implements LoaderManager.
             try {
                 Gson gson = new GsonBuilder().create();
                 reader = new BufferedReader(new InputStreamReader(getContext().getResources().openRawResource(R.raw.data)));
-                return gson.fromJson(reader, new TypeToken<Result<List<Course>>>() {}.getType());
+                return gson.fromJson(reader, new TypeToken<Result<List<Course>>>() {
+                }.getType());
             } finally {
                 Utils.close(reader);
             }
@@ -142,8 +144,10 @@ public class VanGoghActivity extends AppCompatActivity implements LoaderManager.
                     .setText(R.id.tv_name, data.getName())
                     .setText(R.id.tv_description, data.getDescription());
             ImageView icon = helper.get(R.id.iv_icon);
+            Log.i(TAG, String.format("icon, size(%d, %d), measuredSize(%d, %d)", icon.getWidth(), icon.getHeight(), icon.getMeasuredWidth(), icon.getMeasuredHeight()));
             VanGogh.with(icon.getContext())
                     .load(data.getPicBigUrl())
+                    .tag(TAG)
                     .addTransformation(mSquare)
                     .addTransformation((helper.getPosition() & 1) == 0 ? mTrBl : mTlBr)
                     .into(icon);

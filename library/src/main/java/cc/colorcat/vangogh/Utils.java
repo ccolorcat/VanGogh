@@ -128,25 +128,6 @@ class Utils {
         }
     }
 
-    static boolean dumpAndCloseQuietly(InputStream is, OutputStream os) {
-        BufferedInputStream bis = new BufferedInputStream(is);
-        BufferedOutputStream bos = new BufferedOutputStream(os);
-        try {
-            byte[] buffer = new byte[4096];
-            for (int length = bis.read(buffer); length != -1; length = bis.read(buffer)) {
-                bos.write(buffer, 0, length);
-            }
-            bos.flush();
-            return true;
-        } catch (IOException e) {
-            LogUtils.e(e);
-            return false;
-        } finally {
-            close(bis);
-            close(bos);
-        }
-    }
-
     private static void close(Closeable closeable) {
         if (closeable != null) {
             try {
@@ -377,10 +358,6 @@ class Utils {
             builder.append('|').append(creator.transformations.get(i).getKey());
         }
         return builder.toString();
-    }
-
-    static <T> T nullElse(T value, T defaultValue) {
-        return value != null ? value : defaultValue;
     }
 
     private Utils() {

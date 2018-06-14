@@ -45,9 +45,7 @@ public final class Creator {
     Drawable error;
     boolean fade;
     boolean indicatorEnabled;
-    Callback callback;
     Object tag;
-    String key;
 
     Creator(VanGogh vanGogh, Uri uri, String stableKey) {
         this.vanGogh = vanGogh;
@@ -217,85 +215,32 @@ public final class Creator {
         if (callback == null) {
             throw new IllegalArgumentException("callback == null");
         }
-        Utils.checkMain();
-        this.callback = Utils.nullElse(callback, EmptyCallback.EMPTY);
-        if (uri == Uri.EMPTY) {
-            this.callback.onError(new UnsupportedOperationException("unsupported uri: " + uri));
-        } else {
-            key = Utils.createKey(this);
-            if ((fromPolicy & From.MEMORY.policy) != 0) {
-                Bitmap bitmap = vanGogh.obtainFromMemoryCache(key);
-                if (bitmap != null) {
-                    this.callback.onSuccess(bitmap);
-                    return;
-                }
-            }
-        }
-        Action action = new FetAction(this);
-        vanGogh.enqueueAndSubmit(action);
+        into(new FetAction(this, callback), false);
     }
 
     public void into(ImageView target) {
-        this.into(target, null);
+        into(target, null);
     }
 
     public void into(ImageView target, Callback callback) {
-        Utils.checkMain();
         if (target == null) {
             throw new IllegalArgumentException("target == null");
         }
-        if (uri == Uri.EMPTY) {
-            vanGogh.cancelExistingAction(target);
-            target.setImageDrawable(error);
-            return;
-        }
-        this.callback = Utils.nullElse(callback, EmptyCallback.EMPTY);
-        key = Utils.createKey(this);
-        if ((fromPolicy & From.MEMORY.policy) != 0) {
-            Bitmap bitmap = vanGogh.obtainFromMemoryCache(key);
-            if (bitmap != null) {
-                vanGogh.cancelExistingAction(target);
-                VanGoghDrawable drawable = new VanGoghDrawable(vanGogh.context, bitmap, From.MEMORY, fade, indicatorEnabled);
-                target.setImageDrawable(drawable);
-                this.callback.onSuccess(bitmap);
-                return;
-            }
-        }
-        Action action = new ImageViewAction(this, target);
-        vanGogh.enqueueAndSubmit(action);
+        into(new ImageViewAction(this, target, callback), true);
     }
 
     public void into(Target target) {
-        this.into(target, null);
+        into(target, null);
     }
 
     public void into(Target target, Callback callback) {
-        Utils.checkMain();
         if (target == null) {
             throw new IllegalArgumentException("target == null");
         }
-        if (uri == Uri.EMPTY) {
-            vanGogh.cancelExistingAction(target);
-            target.onFailed(error, new UnsupportedOperationException("unsupported uri: " + uri));
-            return;
-        }
-        this.callback = Utils.nullElse(callback, EmptyCallback.EMPTY);
-        key = Utils.createKey(this);
-        if ((fromPolicy & From.MEMORY.policy) != 0) {
-            Bitmap bitmap = vanGogh.obtainFromMemoryCache(key);
-            if (bitmap != null) {
-                vanGogh.cancelExistingAction(target);
-                VanGoghDrawable drawable = new VanGoghDrawable(vanGogh.context, bitmap, From.MEMORY, fade, indicatorEnabled);
-                target.onLoaded(drawable, From.MEMORY);
-                this.callback.onSuccess(bitmap);
-                return;
-            }
-        }
-        Action action = new TargetAction(this, target, vanGogh.context);
-        vanGogh.enqueueAndSubmit(action);
+        into(new TargetAction(this, target, vanGogh.context, callback), true);
     }
 
-    private void into(Action action) {
+    private void into(Action action, boolean enqueue) {
         Utils.checkMain();
         if (uri == Uri.EMPTY) {
             vanGogh.cancelExistingAction(action.target());
@@ -303,13 +248,17 @@ public final class Creator {
             return;
         }
         if ((fromPolicy & From.MEMORY.policy) != 0) {
-            Bitmap bitmap = vanGogh.obtainFromMemoryCache(key);
+            Bitmap bitmap = vanGogh.obtainFromMemoryCache(action.key);
             if (bitmap != null) {
                 vanGogh.cancelExistingAction(action.target());
                 action.complete(bitmap, From.MEMORY);
                 return;
             }
         }
-        vanGogh.enqueueAndSubmit(action);
+        if (enqueue) {
+            vanGogh.enqueueAndSubmit(action);
+        } else {
+            vanGogh.submit(action);
+        }
     }
 }

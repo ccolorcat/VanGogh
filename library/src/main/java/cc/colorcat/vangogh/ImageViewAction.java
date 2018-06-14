@@ -26,8 +26,8 @@ import android.widget.ImageView;
  */
 class ImageViewAction extends Action<ImageView> {
 
-    ImageViewAction(Creator creator, ImageView target) {
-        super(creator, target);
+    ImageViewAction(Creator creator, ImageView target, Callback callback) {
+        super(creator, target, callback);
     }
 
     @Override
