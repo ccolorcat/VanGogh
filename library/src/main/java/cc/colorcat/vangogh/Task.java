@@ -147,7 +147,7 @@ public final class Task {
             }
             this.targetWidth = width;
             this.targetHeight = height;
-            this.scaleType = SCALE_TYPE_NO;
+            this.scaleType = SCALE_TYPE_CENTER_INSIDE;
         }
 
         public void clearResize() {
@@ -208,7 +208,7 @@ public final class Task {
 
         public void rotate(float degrees) {
             rotationDegrees = degrees;
-            hasRotation = true;
+            hasRotation = (degrees != 0);
         }
 
         public boolean hasRotation() {

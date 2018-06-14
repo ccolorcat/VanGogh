@@ -307,6 +307,65 @@ class Utils {
         return Bitmap.createBitmap(result, 0, 0, width, height, matrix, true);
     }
 
+    static Bitmap applyTransformations(Bitmap result, Task.Options ops) {
+        Matrix matrix = new Matrix();
+        if (ops.hasRotation()) {
+            if (ops.hasRotationPivot()) {
+                matrix.setRotate(ops.rotationDegrees(), ops.rotationPivotX(), ops.rotationPivotY());
+            } else {
+                matrix.setRotate(ops.rotationDegrees());
+            }
+        }
+
+        if (ops.hasResize()) {
+            final int width = result.getWidth(), height = result.getHeight();
+            final int targetWidth = ops.targetWidth(), targetHeight = ops.targetHeight();
+            if (width != targetWidth || height != targetHeight) {
+                final float targetRatio = targetWidth / (float) targetHeight;
+                final float ratio = width / (float) height;
+                int drawX = 0, drawY = 0;
+                int drawWidth = targetWidth, drawHeight = targetHeight;
+
+                final int scaleType = ops.scaleType();
+                float scaleX, scaleY;
+                switch (scaleType) {
+                    case Task.Options.SCALE_TYPE_CENTER_CROP: {
+                        if (ratio < targetRatio) {
+                            scaleX = scaleY = targetWidth / (float) width;
+                            drawY = (int) ((height * scaleY - targetHeight) / 2);
+                        } else {
+                            scaleX = scaleY = targetHeight / (float) height;
+                            drawX = (int) ((width * scaleX - targetWidth) / 2);
+                        }
+                        break;
+                    }
+                    case Task.Options.SCALE_TYPE_CENTER_INSIDE: {
+                        if (ratio < targetRatio) {
+                            scaleX = scaleY = targetHeight / (float) height;
+                            drawWidth = (int) (width * scaleX);
+                            drawHeight = (int) (height * scaleY);
+                        } else {
+                            scaleX = scaleY = targetWidth / (float) width;
+                            drawWidth = (int) (width * scaleX);
+                            drawHeight = (int) (height * scaleY);
+                        }
+                        break;
+                    }
+                    case Task.Options.SCALE_TYPE_FIT_XY: {
+                        scaleX = targetWidth / (float) width;
+                        scaleY = targetHeight / (float) height;
+                        break;
+                    }
+                    default:
+                        throw new IllegalArgumentException();
+                }
+                matrix.preScale(scaleX, scaleY);
+                return Bitmap.createBitmap(result, drawX, drawY, drawWidth, drawHeight, matrix, true);
+            }
+        }
+        return Bitmap.createBitmap(result, 0, 0, result.getWidth(), result.getHeight(), matrix, true);
+    }
+
     static String createKey(Creator creator) {
         StringBuilder builder = new StringBuilder(creator.stableKey);
         Task.Options options = creator.options;

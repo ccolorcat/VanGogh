@@ -38,7 +38,8 @@ class TransformInterceptor implements Interceptor {
         Bitmap bitmap = result.bitmap();
         Task.Options options = task.options();
         if (options.hasResize() || options.hasRotation()) {
-            bitmap = Utils.applyOptions(bitmap, options);
+//            bitmap = Utils.applyOptions(bitmap, options);
+            bitmap = Utils.applyTransformations(bitmap, options);
         }
 
         List<Transformation> transformations = task.transformations();
