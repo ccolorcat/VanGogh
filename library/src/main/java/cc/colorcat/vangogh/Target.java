@@ -30,5 +30,5 @@ public interface Target {
 
     void onLoaded(Drawable drawable, From from);
 
-    void onFailed(@Nullable Drawable error, Exception cause);
+    void onFailed(@Nullable Drawable error, Throwable cause);
 }

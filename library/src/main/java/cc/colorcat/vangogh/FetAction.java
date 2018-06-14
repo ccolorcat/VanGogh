@@ -16,22 +16,30 @@
 
 package cc.colorcat.vangogh;
 
-import android.graphics.drawable.Drawable;
-import android.widget.ImageView;
+import android.graphics.Bitmap;
 
 /**
  * Author: cxx
- * Date: 2017-07-10
+ * Date: 2018-06-14
  * GitHub: https://github.com/ccolorcat
  */
-class ImageViewTarget extends ViewTarget<ImageView> {
-
-    ImageViewTarget(ImageView view, Object tag) {
-        super(view, tag);
+class FetAction extends Action<Object> {
+    FetAction(Creator creator) {
+        super(creator, new Object());
     }
 
     @Override
-    protected void setDrawable(ImageView view, Drawable drawable) {
-        view.setImageDrawable(drawable);
+    void prepare() {
+
+    }
+
+    @Override
+    void complete(Bitmap result, From from) {
+        callback.onSuccess(result);
+    }
+
+    @Override
+    void error(Throwable cause) {
+        callback.onError(cause);
     }
 }

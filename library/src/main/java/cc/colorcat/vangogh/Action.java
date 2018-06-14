@@ -18,6 +18,7 @@ package cc.colorcat.vangogh;
 
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.Nullable;
 
 import java.lang.ref.WeakReference;
 
@@ -49,6 +50,7 @@ abstract class Action<T> {
         this.tag = creator.tag;
     }
 
+    @Nullable
     T target() {
         return target.get();
     }

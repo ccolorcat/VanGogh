@@ -213,11 +213,34 @@ public final class Creator {
         return this;
     }
 
+    public void fetch(Callback callback) {
+        if (callback == null) {
+            throw new IllegalArgumentException("callback == null");
+        }
+        Utils.checkMain();
+        this.callback = Utils.nullElse(callback, EmptyCallback.EMPTY);
+        if (uri == Uri.EMPTY) {
+            this.callback.onError(new UnsupportedOperationException("unsupported uri: " + uri));
+        } else {
+            key = Utils.createKey(this);
+            if ((fromPolicy & From.MEMORY.policy) != 0) {
+                Bitmap bitmap = vanGogh.obtainFromMemoryCache(key);
+                if (bitmap != null) {
+                    this.callback.onSuccess(bitmap);
+                    return;
+                }
+            }
+        }
+        Action action = new FetAction(this);
+        vanGogh.enqueueAndSubmit(action);
+    }
+
     public void into(ImageView target) {
         this.into(target, null);
     }
 
     public void into(ImageView target, Callback callback) {
+        Utils.checkMain();
         if (target == null) {
             throw new IllegalArgumentException("target == null");
         }
@@ -231,6 +254,7 @@ public final class Creator {
         if ((fromPolicy & From.MEMORY.policy) != 0) {
             Bitmap bitmap = vanGogh.obtainFromMemoryCache(key);
             if (bitmap != null) {
+                vanGogh.cancelExistingAction(target);
                 VanGoghDrawable drawable = new VanGoghDrawable(vanGogh.context, bitmap, From.MEMORY, fade, indicatorEnabled);
                 target.setImageDrawable(drawable);
                 this.callback.onSuccess(bitmap);
@@ -238,6 +262,54 @@ public final class Creator {
             }
         }
         Action action = new ImageViewAction(this, target);
+        vanGogh.enqueueAndSubmit(action);
+    }
+
+    public void into(Target target) {
+        this.into(target, null);
+    }
+
+    public void into(Target target, Callback callback) {
+        Utils.checkMain();
+        if (target == null) {
+            throw new IllegalArgumentException("target == null");
+        }
+        if (uri == Uri.EMPTY) {
+            vanGogh.cancelExistingAction(target);
+            target.onFailed(error, new UnsupportedOperationException("unsupported uri: " + uri));
+            return;
+        }
+        this.callback = Utils.nullElse(callback, EmptyCallback.EMPTY);
+        key = Utils.createKey(this);
+        if ((fromPolicy & From.MEMORY.policy) != 0) {
+            Bitmap bitmap = vanGogh.obtainFromMemoryCache(key);
+            if (bitmap != null) {
+                vanGogh.cancelExistingAction(target);
+                VanGoghDrawable drawable = new VanGoghDrawable(vanGogh.context, bitmap, From.MEMORY, fade, indicatorEnabled);
+                target.onLoaded(drawable, From.MEMORY);
+                this.callback.onSuccess(bitmap);
+                return;
+            }
+        }
+        Action action = new TargetAction(this, target, vanGogh.context);
+        vanGogh.enqueueAndSubmit(action);
+    }
+
+    private void into(Action action) {
+        Utils.checkMain();
+        if (uri == Uri.EMPTY) {
+            vanGogh.cancelExistingAction(action.target());
+            action.error(new UnsupportedOperationException("unsupported uri: " + uri));
+            return;
+        }
+        if ((fromPolicy & From.MEMORY.policy) != 0) {
+            Bitmap bitmap = vanGogh.obtainFromMemoryCache(key);
+            if (bitmap != null) {
+                vanGogh.cancelExistingAction(action.target());
+                action.complete(bitmap, From.MEMORY);
+                return;
+            }
+        }
         vanGogh.enqueueAndSubmit(action);
     }
 }

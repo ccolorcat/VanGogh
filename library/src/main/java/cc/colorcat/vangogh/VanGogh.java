@@ -101,7 +101,7 @@ public class VanGogh {
     }
 
     void cancelExistingAction(Object target) {
-        Action<?> action = targetToAction.remove(target);
+        Action action = targetToAction.remove(target);
         if (action != null) {
             action.cancel();
             dispatcher.dispatchCancel(action);

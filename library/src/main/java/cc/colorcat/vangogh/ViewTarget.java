@@ -51,7 +51,7 @@ public abstract class ViewTarget<V extends View> implements Target {
     }
 
     @Override
-    public void onFailed(@Nullable Drawable error, Exception cause) {
+    public void onFailed(@Nullable Drawable error, Throwable cause) {
         setDrawableWithCheck(error);
         LogUtils.e(cause);
     }

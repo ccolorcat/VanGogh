@@ -67,13 +67,12 @@ class Dispatcher {
         this.handler = new DispatcherHandler(dispatcherThread.getLooper(), this);
     }
 
-    void dispatchSubmit(Action<?> action) {
-        Utils.checkMain();
+    void dispatchSubmit(Action action) {
         action.prepare();
         handler.sendMessage(handler.obtainMessage(ACTION_SUBMIT, action));
     }
 
-    void dispatchCancel(Action<?> action) {
+    void dispatchCancel(Action action) {
         handler.sendMessage(handler.obtainMessage(ACTION_CANCEL, action));
     }
 
