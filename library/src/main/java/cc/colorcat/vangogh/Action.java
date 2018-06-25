@@ -38,7 +38,7 @@ abstract class Action<T> {
     final Callback callback;
     final Object tag;
 
-    private boolean canceled = false;
+    private boolean canceled;
 
     Action(Creator creator, T target, Callback callback) {
         this.target = new WeakReference<>(target);
@@ -50,6 +50,7 @@ abstract class Action<T> {
         this.indicatorEnabled = creator.indicatorEnabled;
         this.callback = callback != null ? callback : EmptyCallback.EMPTY;
         this.tag = creator.tag;
+        this.canceled = false;
     }
 
     @Nullable

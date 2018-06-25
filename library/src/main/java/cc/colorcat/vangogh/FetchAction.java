@@ -23,9 +23,9 @@ import android.graphics.Bitmap;
  * Date: 2018-06-14
  * GitHub: https://github.com/ccolorcat
  */
-class FetAction extends Action<Object> {
+class FetchAction extends Action<Object> {
 
-    FetAction(Creator creator, Callback callback) {
+    FetchAction(Creator creator, Callback callback) {
         super(creator, new Object(), callback);
     }
 

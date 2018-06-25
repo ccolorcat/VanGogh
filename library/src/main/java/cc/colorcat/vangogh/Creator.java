@@ -215,7 +215,7 @@ public final class Creator {
         if (callback == null) {
             throw new IllegalArgumentException("callback == null");
         }
-        into(new FetAction(this, callback), false);
+        into(new FetchAction(this, callback), false);
     }
 
     public void into(ImageView target) {
