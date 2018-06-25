@@ -29,7 +29,7 @@ import android.graphics.RectF;
  * Date: 2017-08-08
  * GitHub: https://github.com/ccolorcat
  */
-public class OvalTransformation implements Transformation {
+public class OvalTransformation extends BaseTransformation {
 
     @Override
     public Bitmap transform(Bitmap source) {

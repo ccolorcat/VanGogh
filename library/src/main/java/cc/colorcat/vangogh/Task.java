@@ -35,7 +35,6 @@ import java.util.List;
 @SuppressWarnings("unused")
 public class Task {
     private final VanGogh vanGogh;
-
     private final Uri uri;
     private final String stableKey;
     private final int fromPolicy;
@@ -97,10 +96,6 @@ public class Task {
         return transformations;
     }
 
-    public Task.Creator newCreator() {
-        return new Creator(this);
-    }
-
     void onPreExecute() {
         target.onPrepare(loadingDrawable);
     }
@@ -116,24 +111,6 @@ public class Task {
         }
     }
 
-    @Override
-    public String toString() {
-        return "Task{" +
-                "vanGogh=" + vanGogh +
-                ", uri=" + uri +
-                ", stableKey='" + stableKey + '\'' +
-                ", fromPolicy=" + fromPolicy +
-                ", connectTimeOut=" + connectTimeOut +
-                ", readTimeOut=" + readTimeOut +
-                ", target=" + target +
-                ", loadingDrawable=" + loadingDrawable +
-                ", errorDrawable=" + errorDrawable +
-                ", options=" + options +
-                ", transformations=" + transformations +
-                ", fade=" + fade +
-                ", callback=" + callback +
-                '}';
-    }
 
     public static class Options implements Cloneable {
         private Bitmap.Config config = Bitmap.Config.ARGB_8888;
@@ -298,22 +275,6 @@ public class Task {
             this.options = vanGogh.defaultOptions.clone();
             this.transformations = new ArrayList<>(vanGogh.transformations);
             this.fade = vanGogh.fade;
-        }
-
-        Creator(Task task) {
-            this.vanGogh = task.vanGogh;
-            this.uri = task.uri;
-            this.stableKey = task.stableKey;
-            this.fromPolicy = task.fromPolicy;
-            this.connectTimeOut = task.connectTimeOut;
-            this.readTimeOut = task.readTimeOut;
-            this.target = task.target;
-            this.loadingDrawable = task.loadingDrawable;
-            this.errorDrawable = task.errorDrawable;
-            this.options = task.options;
-            this.transformations = new ArrayList<>(task.transformations);
-            this.fade = task.fade;
-            this.callback = task.callback;
         }
 
         /**

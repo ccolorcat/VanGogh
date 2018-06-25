@@ -30,7 +30,7 @@ import android.support.annotation.ColorInt;
  * Date: 2017-08-08
  * GitHub: https://github.com/ccolorcat
  */
-public class CircleTransformation implements Transformation {
+public class CircleTransformation extends BaseTransformation {
     private final float borderWidth;
     @ColorInt
     private final int color;

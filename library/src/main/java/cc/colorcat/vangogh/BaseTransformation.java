@@ -16,22 +16,21 @@
 
 package cc.colorcat.vangogh;
 
-import android.graphics.Bitmap;
-
 /**
  * Author: cxx
- * Date: 2017-08-08
+ * Date: 2018-06-25
  * GitHub: https://github.com/ccolorcat
  */
-public class SquareTransformation extends BaseTransformation {
+public abstract class BaseTransformation implements Transformation {
+    private final String key;
+
+    {
+        Class clazz = getClass();
+        key = clazz.getSimpleName() + '.' + clazz.getPackage().getName();
+    }
 
     @Override
-    public Bitmap transform(Bitmap source) {
-        final int width = source.getWidth(), height = source.getHeight();
-        if (width == height) return source;
-        final int side = Math.min(width, height);
-        final int left = (width - side) >> 1;
-        final int top = (height - side) >> 1;
-        return Bitmap.createBitmap(source, left, top, side, side);
+    public final String getKey() {
+        return key;
     }
 }

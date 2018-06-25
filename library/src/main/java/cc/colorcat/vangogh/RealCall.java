@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Date: 2017-07-11
  * GitHub: https://github.com/ccolorcat
  */
-class RealCall implements Call {
+class RealCall implements Runnable {
     private final VanGogh vanGogh;
     private final Task task;
     private AtomicInteger count = new AtomicInteger(0);
@@ -44,14 +44,17 @@ class RealCall implements Call {
         return count.getAndIncrement();
     }
 
-    @Override
     public Task task() {
         return task;
     }
 
-    @Override
     public Result execute() throws IOException {
         return getResultWithInterceptor();
+    }
+
+    @Override
+    public void run() {
+        
     }
 
     private Result getResultWithInterceptor() throws IOException {

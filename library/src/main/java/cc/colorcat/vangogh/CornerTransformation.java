@@ -32,7 +32,7 @@ import android.support.annotation.ColorInt;
  * Date: 2018-03-06
  * GitHub: https://github.com/ccolorcat
  */
-public class CornerTransformation implements Transformation {
+public class CornerTransformation extends BaseTransformation {
     public static final int TYPE_TL = 1;
     public static final int TYPE_TR = 1 << 1;
     public static final int TYPE_BR = 1 << 2;

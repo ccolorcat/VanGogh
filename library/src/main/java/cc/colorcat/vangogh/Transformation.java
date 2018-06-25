@@ -24,6 +24,7 @@ import android.graphics.Bitmap;
  * GitHub: https://github.com/ccolorcat
  */
 public interface Transformation {
-
     Bitmap transform(Bitmap source);
+
+    String getKey();
 }
