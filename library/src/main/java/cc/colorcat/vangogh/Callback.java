@@ -17,6 +17,7 @@
 package cc.colorcat.vangogh;
 
 import android.graphics.Bitmap;
+import android.support.annotation.NonNull;
 
 /**
  * Author: cxx
@@ -25,7 +26,7 @@ import android.graphics.Bitmap;
  */
 public interface Callback {
 
-    void onSuccess(Bitmap bitmap);
+    void onSuccess(@NonNull Bitmap bitmap);
 
-    void onError(Exception cause);
+    void onError(@NonNull Throwable cause);
 }

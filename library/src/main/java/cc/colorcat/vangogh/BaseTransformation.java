@@ -22,15 +22,10 @@ package cc.colorcat.vangogh;
  * GitHub: https://github.com/ccolorcat
  */
 public abstract class BaseTransformation implements Transformation {
-    private final String key;
-
-    {
-        Class clazz = getClass();
-        key = clazz.getSimpleName() + '.' + clazz.getPackage().getName();
-    }
 
     @Override
-    public final String getKey() {
-        return key;
+    public String getKey() {
+        Class clazz = getClass();
+        return clazz.getSimpleName() + '.' + clazz.getPackage().getName();
     }
 }

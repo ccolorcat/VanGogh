@@ -17,6 +17,7 @@
 package cc.colorcat.vangogh;
 
 import android.graphics.Bitmap;
+import android.support.annotation.NonNull;
 
 /**
  * Author: cxx
@@ -31,7 +32,7 @@ class EmptyCallback implements Callback {
     }
 
     @Override
-    public void onSuccess(Bitmap bitmap) {
+    public void onSuccess(@NonNull Bitmap bitmap) {
 
     }
 

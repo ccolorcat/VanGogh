@@ -60,8 +60,8 @@ public class Task {
         connectTimeOut = creator.connectTimeOut;
         readTimeOut = creator.readTimeOut;
         target = creator.target;
-        loadingDrawable = creator.loadingDrawable;
-        errorDrawable = creator.errorDrawable;
+        loadingDrawable = creator.loading;
+        errorDrawable = creator.error;
         options = creator.options;
         transformations = Utils.immutableList(creator.transformations);
         fade = creator.fade;
@@ -112,24 +112,36 @@ public class Task {
     }
 
 
-    public static class Options implements Cloneable {
-        private Bitmap.Config config = Bitmap.Config.ARGB_8888;
-        private int reqWidth = 0;
-        private int reqHeight = 0;
+    public static final class Options implements Cloneable {
+        static final int SCALE_TYPE_NO = 0;
+        static final int SCALE_TYPE_CENTER_INSIDE = 1;
+        static final int SCALE_TYPE_CENTER_CROP = 1 << 1;
+        static final int SCALE_TYPE_FIT_XY = 1 << 2;
+
+        private Bitmap.Config config;
+        private int targetWidth;
+        private int targetHeight;
+        private boolean hasMaxSize;
+        private boolean hasResize;
+        private int scaleType;
         private float rotationDegrees;
         private boolean hasRotation;
         private float rotationPivotX;
         private float rotationPivotY;
         private boolean hasRotationPivot;
-        private int maxWidth = 0;
-        private int maxHeight = 0;
 
         public Options() {
-
-        }
-
-        public Bitmap.Config config() {
-            return config;
+            config = Bitmap.Config.ARGB_8888;
+            targetWidth = 0;
+            targetHeight = 0;
+            hasMaxSize = false;
+            hasResize = false;
+            scaleType = SCALE_TYPE_NO;
+            rotationDegrees = 0F;
+            hasRotation = false;
+            rotationPivotX = 0F;
+            rotationPivotY = 0F;
+            hasRotationPivot = false;
         }
 
         public void config(Bitmap.Config config) {
@@ -139,49 +151,64 @@ public class Task {
             this.config = config;
         }
 
-        public boolean hasSize() {
-            return reqWidth > 0 && reqHeight > 0;
-        }
-
-        public void resize(int width, int height) {
-            if (width <= 0 || height <= 0) {
-                throw new IllegalArgumentException("width <= 0 || height <= 0");
-            }
-            this.reqWidth = width;
-            this.reqHeight = height;
-        }
-
-        public int reqWidth() {
-            return reqWidth;
-        }
-
-        public int reqHeight() {
-            return reqHeight;
-        }
-
-        public boolean hasMaxSize() {
-            return maxWidth > 0 && maxHeight > 0;
+        public Bitmap.Config config() {
+            return config;
         }
 
         public void maxSize(int maxWidth, int maxHeight) {
-            if (maxWidth <= 0 || maxHeight <= 0) {
-                throw new IllegalArgumentException("maxWidth <= 0 || maxHeight <= 0");
-            }
-            this.maxWidth = maxWidth;
-            this.maxHeight = maxHeight;
+            setSize(maxWidth, maxHeight, false);
         }
 
         public void clearMaxSize() {
-            this.maxWidth = 0;
-            this.maxHeight = 0;
+            hasMaxSize = false;
+            tryClearSize();
         }
 
-        public int maxWidth() {
-            return maxWidth;
+        public boolean hasMaxSize() {
+            return hasMaxSize;
         }
 
-        public int maxHeight() {
-            return maxHeight;
+        public void resize(int width, int height) {
+            setSize(width, height, true);
+            scaleType = SCALE_TYPE_CENTER_INSIDE;
+        }
+
+        public void clearResize() {
+            hasResize = false;
+            scaleType = SCALE_TYPE_NO;
+            tryClearSize();
+        }
+
+        public boolean hasResize() {
+            return hasResize;
+        }
+
+        public boolean hasSize() {
+            return hasMaxSize || hasResize;
+        }
+
+        public int targetWidth() {
+            return targetWidth;
+        }
+
+        public int targetHeight() {
+            return targetHeight;
+        }
+
+        public void centerInside() {
+            scaleType = SCALE_TYPE_CENTER_INSIDE;
+        }
+
+        public void centerCrop() {
+            scaleType = SCALE_TYPE_CENTER_CROP;
+        }
+
+        public void fitXY() {
+            scaleType = SCALE_TYPE_FIT_XY;
+        }
+
+        public int scaleType() {
+            return scaleType;
         }
 
         public void rotate(float degrees, float pivotX, float pivotY) {
@@ -191,9 +218,20 @@ public class Task {
             hasRotationPivot = true;
         }
 
+        public boolean hasRotationPivot() {
+            return hasRotationPivot;
+        }
+
         public void rotate(float degrees) {
+            if (degrees == 0) {
+                throw new IllegalArgumentException("illegal degrees");
+            }
             rotationDegrees = degrees;
             hasRotation = true;
+        }
+
+        public boolean hasRotation() {
+            return hasRotation;
         }
 
         public float rotationDegrees() {
@@ -208,28 +246,21 @@ public class Task {
             return rotationPivotY;
         }
 
-        public boolean hasRotation() {
-            return hasRotation;
+        private void setSize(int width, int height, boolean isResize) {
+            if (width <= 0 || height <= 0) {
+                throw new IllegalArgumentException("width <= 0 || height <= 0");
+            }
+            targetWidth = width;
+            targetHeight = height;
+            hasResize = isResize;
+            hasMaxSize = !hasResize;
         }
 
-        public boolean hasRotationPivot() {
-            return hasRotationPivot;
-        }
-
-        @Override
-        public String toString() {
-            return "Options{" +
-                    "config=" + config +
-                    ", reqWidth=" + reqWidth +
-                    ", reqHeight=" + reqHeight +
-                    ", rotationDegrees=" + rotationDegrees +
-                    ", hasRotation=" + hasRotation +
-                    ", rotationPivotX=" + rotationPivotX +
-                    ", rotationPivotY=" + rotationPivotY +
-                    ", hasRotationPivot=" + hasRotationPivot +
-                    ", maxWidth=" + maxWidth +
-                    ", maxHeight=" + maxHeight +
-                    '}';
+        private void tryClearSize() {
+            if (!hasMaxSize && !hasResize) {
+                targetWidth = 0;
+                targetHeight = 0;
+            }
         }
 
         @SuppressWarnings("CloneDoesntCallSuperClone")
@@ -241,40 +272,59 @@ public class Task {
                 throw new RuntimeException(e);
             }
         }
+
+        @Override
+        public String toString() {
+            return "Options{" +
+                    "config=" + config +
+                    ", targetWidth=" + targetWidth +
+                    ", targetHeight=" + targetHeight +
+                    ", hasMaxSize=" + hasMaxSize +
+                    ", hasResize=" + hasResize +
+                    ", scaleType=" + scaleType +
+                    ", rotationDegrees=" + rotationDegrees +
+                    ", hasRotation=" + hasRotation +
+                    ", rotationPivotX=" + rotationPivotX +
+                    ", rotationPivotY=" + rotationPivotY +
+                    ", hasRotationPivot=" + hasRotationPivot +
+                    '}';
+        }
     }
 
-    public static class Creator {
-        private final VanGogh vanGogh;
 
-        private Uri uri;
-        private String stableKey;
-        private int fromPolicy;
+    public final static class Creator {
+        final VanGogh vanGogh;
+        final Uri uri;
+        int fromPolicy;
+        int connectTimeOut;
+        int readTimeOut;
+        boolean fade;
+        boolean indicatorEnabled;
+        List<Transformation> transformations;
+        Drawable loading;
+        Drawable error;
+        Options options;
+        Callback callback;
+        Target target;
 
-        private int connectTimeOut;
-        private int readTimeOut;
+        String stableKey;
+        String key;
+        Object tag;
 
-        private Target target = EmptyTarget.EMPTY;
-        private Drawable loadingDrawable;
-        private Drawable errorDrawable;
-
-        private Options options;
-
-        private List<Transformation> transformations;
-        private boolean fade;
-        private Callback callback = EmptyCallback.EMPTY;
-
-        Creator(VanGogh vanGogh, Uri uri, String stableKey) {
+        Creator(VanGogh vanGogh, Uri uri) {
             this.vanGogh = vanGogh;
             this.uri = uri;
-            this.stableKey = stableKey;
             this.fromPolicy = vanGogh.defaultFromPolicy;
             this.connectTimeOut = vanGogh.connectTimeOut;
             this.readTimeOut = vanGogh.readTimeOut;
-            this.loadingDrawable = vanGogh.defaultLoading;
-            this.errorDrawable = vanGogh.defaultError;
-            this.options = vanGogh.defaultOptions.clone();
-            this.transformations = new ArrayList<>(vanGogh.transformations);
             this.fade = vanGogh.fade;
+            this.indicatorEnabled = vanGogh.indicatorEnabled;
+            this.transformations = new ArrayList<>(vanGogh.transformations);
+            this.loading = vanGogh.defaultLoading;
+            this.error = vanGogh.defaultError;
+            this.options = vanGogh.defaultOptions.clone();
+            this.callback = EmptyCallback.EMPTY;
+            this.target = EmptyTarget.EMPTY;
         }
 
         /**
@@ -309,89 +359,15 @@ public class Task {
         }
 
         /**
-         * The drawable to be used while the image is being loaded.
+         * @param fade Enable or disable fade in of images loaded.
          */
-        public Creator loading(@DrawableRes int loadingResId) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                loadingDrawable = vanGogh.resources().getDrawable(loadingResId, vanGogh.theme());
-            } else {
-                loadingDrawable = vanGogh.resources().getDrawable(loadingResId);
-            }
+        public Creator fade(boolean fade) {
+            this.fade = fade;
             return this;
         }
 
-        /**
-         * The drawable to be used while the image is being loaded.
-         */
-        public Creator loading(Drawable loading) {
-            if (loading == null) throw new NullPointerException("loading == null");
-            loadingDrawable = loading;
-            return this;
-        }
-
-
-        /**
-         * The drawable to be used if the request image could not be loaded.
-         */
-        public Creator error(@DrawableRes int errorResId) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                errorDrawable = vanGogh.resources().getDrawable(errorResId, vanGogh.theme());
-            } else {
-                errorDrawable = vanGogh.resources().getDrawable(errorResId);
-            }
-            return this;
-        }
-
-        /**
-         * The drawable to be used if the request image could not be loaded.
-         */
-        public Creator error(Drawable error) {
-            if (error == null) {
-                throw new NullPointerException("error == null");
-            }
-            errorDrawable = error;
-            return this;
-        }
-
-        /**
-         * Resize the image to the specified size in pixels.
-         */
-        public Creator resize(int width, int height) {
-            options.resize(width, height);
-            return this;
-        }
-
-        public Creator config(Bitmap.Config config) {
-            options.config(config);
-            return this;
-        }
-
-        /**
-         * Rotate the image by the specified degrees.
-         */
-        public Creator rotate(float degrees) {
-            options.rotate(degrees);
-            return this;
-        }
-
-        /**
-         * Rotate the image by the specified degrees around a pivot point.
-         */
-        public Creator rotate(float degrees, float pivotX, float pivotY) {
-            options.rotate(degrees, pivotX, pivotY);
-            return this;
-        }
-
-        /**
-         * Resize the image to less than the specified size in pixels.
-         */
-        public Creator maxSize(int maxWidth, int maxHeight) {
-            options.maxSize(maxWidth, maxHeight);
-            return this;
-        }
-
-        public Creator clearMaxSize() {
-            options.clearMaxSize();
+        public Creator enableIndicator(boolean enabled) {
+            this.indicatorEnabled = enabled;
             return this;
         }
 
@@ -411,12 +387,114 @@ public class Task {
         }
 
         /**
-         * @param fade Enable or disable fade in of images loaded.
+         * The drawable to be used while the image is being loaded.
          */
-        public Creator fade(boolean fade) {
-            this.fade = fade;
+        public Creator loading(@DrawableRes int loadingResId) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                loading = vanGogh.context.getDrawable(loadingResId);
+            } else {
+                loading = vanGogh.context.getResources().getDrawable(loadingResId);
+            }
             return this;
         }
+
+        /**
+         * The drawable to be used while the image is being loaded.
+         */
+        public Creator loading(Drawable loading) {
+            if (loading == null) {
+                throw new NullPointerException("loading == null");
+            }
+            this.loading = loading;
+            return this;
+        }
+
+
+        /**
+         * The drawable to be used if the request image could not be loaded.
+         */
+        public Creator error(@DrawableRes int errorResId) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                error = vanGogh.context.getDrawable(errorResId);
+            } else {
+                error = vanGogh.context.getResources().getDrawable(errorResId);
+            }
+            return this;
+        }
+
+        /**
+         * The drawable to be used if the request image could not be loaded.
+         */
+        public Creator error(Drawable error) {
+            if (error == null) {
+                throw new NullPointerException("error == null");
+            }
+            this.error = error;
+            return this;
+        }
+
+        public Creator config(Bitmap.Config config) {
+            options.config(config);
+            return this;
+        }
+
+        /**
+         * Resize the image to less than the specified size in pixels.
+         */
+        public Creator maxSize(int maxWidth, int maxHeight) {
+            options.maxSize(maxWidth, maxHeight);
+            return this;
+        }
+
+        public Creator clearMaxSize() {
+            options.clearMaxSize();
+            return this;
+        }
+
+        /**
+         * Resize the image to the specified size in pixels.
+         */
+        public Creator resize(int width, int height) {
+            options.resize(width, height);
+            return this;
+        }
+
+        public Creator clearResize() {
+            options.clearResize();
+            return this;
+        }
+
+        public Creator centerInside() {
+            options.centerInside();
+            return this;
+        }
+
+        public Creator centerCrop() {
+            options.centerCrop();
+            return this;
+        }
+
+        public Creator fitXY() {
+            options.fitXY();
+            return this;
+        }
+
+        /**
+         * Rotate the image by the specified degrees around a pivot point.
+         */
+        public Creator rotate(float degrees, float pivotX, float pivotY) {
+            options.rotate(degrees, pivotX, pivotY);
+            return this;
+        }
+
+        /**
+         * Rotate the image by the specified degrees.
+         */
+        public Creator rotate(float degrees) {
+            options.rotate(degrees);
+            return this;
+        }
+
 
         public Creator callback(Callback callback) {
             this.callback = (callback != null ? callback : EmptyCallback.EMPTY);
@@ -453,7 +531,7 @@ public class Task {
 
         private void quickFetchOrEnqueue() {
             int policy = fromPolicy & From.MEMORY.policy;
-            if (policy != 0 && transformations.isEmpty() && !vanGogh.debug) {
+            if (policy != 0 && transformations.isEmpty() && !vanGogh.indicatorEnabled) {
                 Bitmap bitmap = vanGogh.checkMemoryCache(stableKey);
                 if (bitmap != null) {
                     target.onLoaded(new BitmapDrawable(vanGogh.resources(), bitmap), From.MEMORY);

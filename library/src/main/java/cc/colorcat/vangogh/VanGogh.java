@@ -62,7 +62,7 @@ public class VanGogh {
 
     final Task.Options defaultOptions;
     final Context context;
-    final boolean debug;
+    final boolean indicatorEnabled;
 
     final List<Transformation> transformations;
 
@@ -126,7 +126,7 @@ public class VanGogh {
         defaultFromPolicy = builder.defaultFromPolicy;
         defaultOptions = builder.defaultOptions;
         context = builder.context;
-        debug = builder.debug;
+        indicatorEnabled = builder.debug;
         transformations = Utils.immutableList(builder.transformations);
         defaultLoading = builder.defaultLoading;
         defaultError = builder.defaultError;
@@ -178,9 +178,7 @@ public class VanGogh {
      * @see #load(int)
      */
     public Task.Creator load(Uri uri) {
-        Uri u = (uri == null ? Uri.EMPTY : uri);
-        String stableKey = Utils.md5(u.toString());
-        return new Task.Creator(this, u, stableKey);
+        return new Task.Creator(this, uri == null ? Uri.EMPTY : uri);
     }
 
     /**

@@ -17,6 +17,7 @@
 package cc.colorcat.vangogh;
 
 import android.graphics.drawable.Drawable;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 /**
@@ -37,12 +38,17 @@ class EmptyTarget implements Target {
     }
 
     @Override
-    public void onLoaded(Drawable drawable, From from) {
+    public void onLoaded(@NonNull Drawable drawable, @NonNull From from) {
 
     }
 
     @Override
-    public void onFailed(@Nullable Drawable error, Exception cause) {
+    public void onFailed(Drawable error, @NonNull Throwable cause) {
 
+    }
+
+    @Override
+    public int identifier() {
+        return 0;
     }
 }

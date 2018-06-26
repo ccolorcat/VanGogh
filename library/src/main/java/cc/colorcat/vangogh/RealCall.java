@@ -61,7 +61,7 @@ class RealCall implements Runnable {
         List<Interceptor> users = vanGogh.interceptors;
         List<Interceptor> interceptors = new ArrayList<>(users.size() + 7);
         interceptors.addAll(users);
-        if (vanGogh.debug) {
+        if (vanGogh.indicatorEnabled) {
             interceptors.add(new WatermarkInterceptor());
         }
         interceptors.add(new TransformInterceptor());

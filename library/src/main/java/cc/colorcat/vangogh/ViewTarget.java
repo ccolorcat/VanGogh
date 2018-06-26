@@ -17,6 +17,7 @@
 package cc.colorcat.vangogh;
 
 import android.graphics.drawable.Drawable;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.view.View;
 
@@ -32,11 +33,13 @@ public abstract class ViewTarget<V extends View> implements Target {
     private static final int TAG_ID = R.string.app_name;
 
     private final Reference<? extends V> ref;
+    private final int viewHashCode;
     private final Object tag;
 
     public ViewTarget(V view, Object tag) {
         view.setTag(TAG_ID, tag);
         this.ref = new WeakReference<>(view);
+        this.viewHashCode = view.hashCode();
         this.tag = tag;
     }
 
@@ -46,14 +49,19 @@ public abstract class ViewTarget<V extends View> implements Target {
     }
 
     @Override
-    public void onLoaded(Drawable drawable, From from) {
+    public void onLoaded(@NonNull Drawable drawable, @NonNull From from) {
         setDrawableWithCheck(drawable);
     }
 
     @Override
-    public void onFailed(@Nullable Drawable error, Exception cause) {
+    public void onFailed(Drawable error, @NonNull Throwable cause) {
         setDrawableWithCheck(error);
         LogUtils.e(cause);
+    }
+
+    @Override
+    public final int identifier() {
+        return viewHashCode;
     }
 
     private void setDrawableWithCheck(Drawable drawable) {
