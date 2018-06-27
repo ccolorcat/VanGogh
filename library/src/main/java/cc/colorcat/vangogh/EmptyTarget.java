@@ -48,7 +48,7 @@ class EmptyTarget implements Target {
     }
 
     @Override
-    public int identifier() {
+    public int uniqueCode() {
         return 0;
     }
 }

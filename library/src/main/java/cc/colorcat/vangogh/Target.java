@@ -33,5 +33,5 @@ public interface Target {
 
     void onFailed(Drawable error, @NonNull Throwable cause);
 
-    int identifier();
+    int uniqueCode();
 }

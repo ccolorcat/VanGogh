@@ -33,13 +33,13 @@ public abstract class ViewTarget<V extends View> implements Target {
     private static final int TAG_ID = R.string.app_name;
 
     private final Reference<? extends V> ref;
-    private final int viewHashCode;
+    private final int uniqueCode;
     private final Object tag;
 
     public ViewTarget(V view, Object tag) {
         view.setTag(TAG_ID, tag);
         this.ref = new WeakReference<>(view);
-        this.viewHashCode = view.hashCode();
+        this.uniqueCode = view.hashCode();
         this.tag = tag;
     }
 
@@ -60,8 +60,8 @@ public abstract class ViewTarget<V extends View> implements Target {
     }
 
     @Override
-    public final int identifier() {
-        return viewHashCode;
+    public final int uniqueCode() {
+        return uniqueCode;
     }
 
     private void setDrawableWithCheck(Drawable drawable) {

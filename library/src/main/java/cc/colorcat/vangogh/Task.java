@@ -366,7 +366,7 @@ public class Task {
             return this;
         }
 
-        public Creator enableIndicator(boolean enabled) {
+        public Creator indicator(boolean enabled) {
             this.indicatorEnabled = enabled;
             return this;
         }
@@ -402,9 +402,6 @@ public class Task {
          * The drawable to be used while the image is being loaded.
          */
         public Creator loading(Drawable loading) {
-            if (loading == null) {
-                throw new NullPointerException("loading == null");
-            }
             this.loading = loading;
             return this;
         }
@@ -426,9 +423,6 @@ public class Task {
          * The drawable to be used if the request image could not be loaded.
          */
         public Creator error(Drawable error) {
-            if (error == null) {
-                throw new NullPointerException("error == null");
-            }
             this.error = error;
             return this;
         }
