@@ -19,28 +19,34 @@ package cc.colorcat.vangogh;
 import android.graphics.Bitmap;
 
 import java.io.IOException;
-import java.io.InputStream;
 
 /**
  * Author: cxx
- * Date: 2017-07-12
+ * Date: 2017-07-11
  * GitHub: https://github.com/ccolorcat
  */
-class StreamInterceptor implements Interceptor {
+class StableKeyMemoryCacheInterceptor implements Interceptor {
+    private Cache<Bitmap> memoryCache;
+
+    StableKeyMemoryCacheInterceptor(Cache<Bitmap> cache) {
+        this.memoryCache = cache;
+    }
 
     @Override
     public Result intercept(Chain chain) throws IOException {
         Task task = chain.task();
-        Result result = chain.proceed(task);
-        Bitmap bitmap = result.bitmap();
-        if (bitmap == null) {
-            InputStream is = result.stream();
-            Task.Options options = task.options();
-            bitmap = Utils.transformStreamAndClose(is, options);
-            if (bitmap == null) {
-                throw new IOException("decode failed, uri = " + task.uri());
+        int fromPolicy = task.fromPolicy() & From.MEMORY.policy;
+        if (fromPolicy != 0) {
+            Bitmap bitmap = memoryCache.get(task.stableKey());
+            if (bitmap != null) {
+                return new Result(bitmap, From.MEMORY);
             }
         }
-        return new Result(bitmap, result.from());
+        Result result = chain.proceed(task);
+        Task.Options ops = task.options();
+        if (!ops.hasResize() && !ops.hasRotation()) {
+            memoryCache.save(task.stableKey(), result.bitmap());
+        }
+        return result;
     }
 }

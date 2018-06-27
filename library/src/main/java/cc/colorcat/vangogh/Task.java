@@ -17,7 +17,6 @@
 package cc.colorcat.vangogh;
 
 import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
@@ -33,47 +32,49 @@ import java.util.List;
  * GitHub: https://github.com/ccolorcat
  */
 @SuppressWarnings("unused")
-public class Task {
-    private final VanGogh vanGogh;
-    private final Uri uri;
-    private final String stableKey;
-    private final int fromPolicy;
+public final class Task {
+    final VanGogh vanGogh;
+    final Uri uri;
+    final int fromPolicy;
+    final int connectTimeOut;
+    final int readTimeOut;
+    final boolean fade;
+    final boolean indicatorEnabled;
+    final List<Transformation> transformations;
+    final Drawable placeHolder;
+    final Drawable error;
+    final Options options;
+    final Callback callback;
 
-    private final int connectTimeOut;
-    private final int readTimeOut;
+    final Target target;
+    final String stableKey;
+    final String key;
+    final Object tag;
 
-    private final Target target;
-    private final Drawable loadingDrawable;
-    private final Drawable errorDrawable;
-
-    private final Options options;
-
-    private final List<Transformation> transformations;
-    private final boolean fade;
-    private final Callback callback;
+    private boolean canceled;
 
     private Task(Creator creator) {
         vanGogh = creator.vanGogh;
         uri = creator.uri;
-        stableKey = creator.stableKey;
         fromPolicy = creator.fromPolicy;
         connectTimeOut = creator.connectTimeOut;
         readTimeOut = creator.readTimeOut;
-        target = creator.target;
-        loadingDrawable = creator.loading;
-        errorDrawable = creator.error;
-        options = creator.options;
-        transformations = Utils.immutableList(creator.transformations);
         fade = creator.fade;
+        indicatorEnabled = creator.indicatorEnabled;
+        transformations = Utils.immutableList(creator.transformations);
+        placeHolder = creator.placeholder;
+        error = creator.error;
+        options = creator.options;
         callback = creator.callback;
+        target = creator.target;
+        stableKey = creator.stableKey;
+        key = creator.key;
+        tag = creator.tag;
+        canceled = false;
     }
 
     public Uri uri() {
         return uri;
-    }
-
-    public String stableKey() {
-        return stableKey;
     }
 
     public int fromPolicy() {
@@ -88,25 +89,48 @@ public class Task {
         return readTimeOut;
     }
 
-    public Options options() {
-        return options;
-    }
-
     public List<Transformation> transformations() {
         return transformations;
     }
 
-    void onPreExecute() {
-        target.onPrepare(loadingDrawable);
+    public Options options() {
+        return options;
     }
 
-    void onPostResult(Result result, Exception cause) {
+    public String stableKey() {
+        return stableKey;
+    }
+
+    public String key() {
+        return key;
+    }
+
+    public Object tag() {
+        return tag;
+    }
+
+    void cancel() {
+        canceled = true;
+    }
+
+    boolean isCanceled() {
+        return canceled;
+    }
+
+    void onPreExecute() {
+        target.onPrepare(placeHolder);
+    }
+
+    void onPostResult(Result result, Throwable cause) {
         if (result != null) {
             Bitmap bitmap = result.bitmap();
-            target.onLoaded(new VanGoghDrawable(vanGogh.resources(), bitmap, fade), result.from());
+            From from = result.from();
+            boolean animating = fade && from != From.MEMORY;
+            Drawable drawable = new VanGoghDrawable(vanGogh.context, bitmap, from, animating, indicatorEnabled);
+            target.onLoaded(drawable, from);
             callback.onSuccess(bitmap);
         } else if (cause != null) {
-            target.onFailed(errorDrawable, cause);
+            target.onFailed(error, cause);
             callback.onError(cause);
         }
     }
@@ -301,12 +325,12 @@ public class Task {
         boolean fade;
         boolean indicatorEnabled;
         List<Transformation> transformations;
-        Drawable loading;
+        Drawable placeholder;
         Drawable error;
         Options options;
         Callback callback;
-        Target target;
 
+        Target target;
         String stableKey;
         String key;
         Object tag;
@@ -320,11 +344,10 @@ public class Task {
             this.fade = vanGogh.fade;
             this.indicatorEnabled = vanGogh.indicatorEnabled;
             this.transformations = new ArrayList<>(vanGogh.transformations);
-            this.loading = vanGogh.defaultLoading;
+            this.placeholder = vanGogh.defaultPlaceholder;
             this.error = vanGogh.defaultError;
             this.options = vanGogh.defaultOptions.clone();
-            this.callback = EmptyCallback.EMPTY;
-            this.target = EmptyTarget.EMPTY;
+            this.callback = EmptyCallback.INSTANCE;
         }
 
         /**
@@ -389,11 +412,11 @@ public class Task {
         /**
          * The drawable to be used while the image is being loaded.
          */
-        public Creator loading(@DrawableRes int loadingResId) {
+        public Creator placeholder(@DrawableRes int placeholderResId) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                loading = vanGogh.context.getDrawable(loadingResId);
+                placeholder = vanGogh.context.getDrawable(placeholderResId);
             } else {
-                loading = vanGogh.context.getResources().getDrawable(loadingResId);
+                placeholder = vanGogh.context.getResources().getDrawable(placeholderResId);
             }
             return this;
         }
@@ -401,8 +424,8 @@ public class Task {
         /**
          * The drawable to be used while the image is being loaded.
          */
-        public Creator loading(Drawable loading) {
-            this.loading = loading;
+        public Creator placeholder(Drawable placeholder) {
+            this.placeholder = placeholder;
             return this;
         }
 
@@ -491,7 +514,7 @@ public class Task {
 
 
         public Creator callback(Callback callback) {
-            this.callback = (callback != null ? callback : EmptyCallback.EMPTY);
+            this.callback = (callback != null ? callback : EmptyCallback.INSTANCE);
             return this;
         }
 
@@ -499,41 +522,52 @@ public class Task {
             if (view == null) {
                 throw new NullPointerException("view == null");
             }
-            this.into(new ImageViewTarget(view, stableKey));
+            quickFetchOrEnqueue(new ImageViewTarget(view), true);
+        }
+
+        public void fetch(Callback callback) {
+            if (callback == null) {
+                throw new NullPointerException("callback == null");
+            }
+            quickFetchOrEnqueue(new FetchTarget(callback), false);
         }
 
         public void into(Target target) {
             if (target == null) {
                 throw new NullPointerException("target == null");
             }
+            quickFetchOrEnqueue(target, true);
+        }
+
+        private void quickFetchOrEnqueue(Target target, boolean enqueue) {
+            Utils.checkMain();
             this.target = target;
-            quickFetchOrEnqueue();
-        }
+            if (uri == Uri.EMPTY) {
+                vanGogh.cancelExistingTask(this.target.uniqueCode());
+                Throwable cause = new UnsupportedOperationException("unsupported uri: " + uri);
+                this.target.onFailed(error, cause);
+                callback.onError(cause);
+                return;
+            }
 
-        public void fetch() {
-            quickFetchOrEnqueue();
-        }
-
-        public void fetch(Callback callback) {
-            this.callback = (callback != null ? callback : EmptyCallback.EMPTY);
-            quickFetchOrEnqueue();
-        }
-
-        public Task create() {
-            return new Task(this);
-        }
-
-        private void quickFetchOrEnqueue() {
-            int policy = fromPolicy & From.MEMORY.policy;
-            if (policy != 0 && transformations.isEmpty() && !vanGogh.indicatorEnabled) {
-                Bitmap bitmap = vanGogh.checkMemoryCache(stableKey);
+            stableKey = Utils.createStableKey(this);
+            key = Utils.createKey(this);
+            if (tag == null) tag = stableKey;
+            if ((fromPolicy & From.MEMORY.policy) != 0) {
+                Bitmap bitmap = vanGogh.getFromMemoryCache(key);
                 if (bitmap != null) {
-                    target.onLoaded(new BitmapDrawable(vanGogh.resources(), bitmap), From.MEMORY);
+                    Drawable drawable = new VanGoghDrawable(vanGogh.context, bitmap, From.MEMORY, false, indicatorEnabled);
+                    this.target.onLoaded(drawable, From.MEMORY);
                     callback.onSuccess(bitmap);
                     return;
                 }
             }
-            vanGogh.enqueue(create());
+            Task task = new Task(this);
+            if (enqueue) {
+                vanGogh.enqueueAndSubmit(task);
+            } else {
+                vanGogh.submit(task);
+            }
         }
     }
 }

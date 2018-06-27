@@ -21,11 +21,11 @@ import android.support.annotation.NonNull;
 
 /**
  * Author: cxx
- * Date: 2017-12-14
+ * Date: 2018-06-27
  * GitHub: https://github.com/ccolorcat
  */
 class EmptyCallback implements Callback {
-    final static Callback EMPTY = new EmptyCallback();
+    static final Callback INSTANCE = new EmptyCallback();
 
     private EmptyCallback() {
 
@@ -37,7 +37,7 @@ class EmptyCallback implements Callback {
     }
 
     @Override
-    public void onError(Exception cause) {
+    public void onError(@NonNull Throwable cause) {
 
     }
 }

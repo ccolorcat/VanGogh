@@ -16,6 +16,7 @@
 
 package cc.colorcat.vangogh;
 
+import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -27,7 +28,7 @@ import android.graphics.drawable.BitmapDrawable;
  * GitHub: https://github.com/ccolorcat
  */
 public class VanGoghDrawable extends BitmapDrawable {
-    private final boolean animating;
+    private boolean animating;
     private int maxAlpha = 0xFF;
     private int alpha = 0; // [0, maxAlpha]
 
@@ -38,6 +39,10 @@ public class VanGoghDrawable extends BitmapDrawable {
     public VanGoghDrawable(Resources res, Bitmap bitmap, boolean animating) {
         super(res, bitmap);
         this.animating = animating;
+    }
+
+    public VanGoghDrawable(Context context, Bitmap bitmap, From from, boolean animating, boolean indicator) {
+
     }
 
     @Override

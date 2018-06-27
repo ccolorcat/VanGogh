@@ -21,7 +21,6 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.os.Looper;
 import android.support.annotation.ColorInt;
@@ -198,7 +197,7 @@ class Utils {
     /**
      * md5 加密，如果加密失败则原样返回
      */
-    static String md5(String resource) {
+    private static String md5(String resource) {
         String result = resource;
         try {
             MessageDigest digest = MessageDigest.getInstance("MD5");
@@ -216,6 +215,42 @@ class Utils {
             LogUtils.e(e);
         }
         return result;
+    }
+
+    static String createStableKey(Task.Creator creator) {
+        return md5(creator.uri.toString());
+    }
+
+    static String createKey(Task.Creator creator) {
+        final StringBuilder builder = new StringBuilder(creator.stableKey);
+        final Task.Options options = creator.options;
+        if (options.hasMaxSize()) {
+            builder.append("|maxSize:")
+                    .append(options.targetWidth())
+                    .append('x')
+                    .append(options.targetHeight());
+        } else if (options.hasResize()) {
+            builder.append("|resize:")
+                    .append(options.targetWidth())
+                    .append('x')
+                    .append(options.targetHeight())
+                    .append("scaleType:")
+                    .append(options.scaleType());
+        }
+        if (options.hasRotation()) {
+            builder.append("|rotation:")
+                    .append(options.rotationDegrees());
+            if (options.hasRotationPivot()) {
+                builder.append("pivot:")
+                        .append(options.rotationPivotX())
+                        .append('x')
+                        .append(options.rotationPivotY());
+            }
+        }
+        for (int i = 0, size = creator.transformations.size(); i < size; ++i) {
+            builder.append('|').append(creator.transformations.get(i).getKey());
+        }
+        return builder.toString();
     }
 
     static Bitmap decodeStreamAndClose(InputStream is) {
@@ -264,7 +299,7 @@ class Utils {
     }
 
     private static int calculateInSampleSize(BitmapFactory.Options bo, Task.Options to) {
-        final int maxWidth = to.maxWidth(), maxHeight = to.maxHeight();
+        final int maxWidth = to.targetWidth(), maxHeight = to.targetHeight();
         final int width = bo.outWidth, height = bo.outHeight;
         int inSampleSize = 1;
         while (width / inSampleSize > maxWidth && height / inSampleSize > maxHeight) {
@@ -285,28 +320,34 @@ class Utils {
     }
 
     static Bitmap applyOptions(Bitmap result, Task.Options ops) {
-        Matrix matrix = new Matrix();
-        final int width = result.getWidth(), height = result.getHeight();
-        if (ops.hasSize()) {
-            final int reqWidth = ops.reqWidth(), reqHeight = ops.reqHeight();
-            if (reqWidth != width && reqHeight != height
-                    || reqWidth == width && reqHeight < height
-                    || reqHeight == height && reqWidth < width) {
-                float scaleX = ((float) reqWidth) / width;
-                float scaleY = ((float) reqHeight) / height;
-                float scale = Math.min(scaleX, scaleY);
-                matrix.postScale(scale, scale);
-            }
-        }
-        if (ops.hasRotationPivot()) {
-            matrix.postRotate(ops.rotationDegrees(), ops.rotationPivotX(), ops.rotationPivotY());
-        } else if (ops.hasRotation()) {
-            matrix.postRotate(ops.rotationDegrees());
-        }
-        return Bitmap.createBitmap(result, 0, 0, width, height, matrix, true);
+//        Matrix matrix = new Matrix();
+//        final int width = result.getWidth(), height = result.getHeight();
+//        if (ops.hasSize()) {
+//            final int reqWidth = ops.reqWidth(), reqHeight = ops.reqHeight();
+//            if (reqWidth != width && reqHeight != height
+//                    || reqWidth == width && reqHeight < height
+//                    || reqHeight == height && reqWidth < width) {
+//                float scaleX = ((float) reqWidth) / width;
+//                float scaleY = ((float) reqHeight) / height;
+//                float scale = Math.min(scaleX, scaleY);
+//                matrix.postScale(scale, scale);
+//            }
+//        }
+//        if (ops.hasRotationPivot()) {
+//            matrix.postRotate(ops.rotationDegrees(), ops.rotationPivotX(), ops.rotationPivotY());
+//        } else if (ops.hasRotation()) {
+//            matrix.postRotate(ops.rotationDegrees());
+//        }
+//        return Bitmap.createBitmap(result, 0, 0, width, height, matrix, true);
+
+        return result;
     }
 
     private Utils() {
         throw new AssertionError("no instance");
+    }
+
+    public static Bitmap transformStreamAndClose(InputStream is, Task.Options options) {
+        return null;
     }
 }

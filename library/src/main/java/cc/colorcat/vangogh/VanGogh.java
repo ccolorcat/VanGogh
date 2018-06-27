@@ -25,7 +25,9 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.DrawableRes;
+import android.support.annotation.Nullable;
 import android.text.TextUtils;
+import android.util.SparseArray;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,10 +48,11 @@ public class VanGogh {
     @SuppressLint("StaticFieldLeak")
     private static volatile VanGogh singleton;
 
-    private final Dispatcher dispatcher;
+    private SparseArray<Task> uniqueCodeToTask = new SparseArray<>(16);
+    final Dispatcher dispatcher;
     final boolean mostRecentFirst;
     final int maxRunning;
-    final int retryCount;
+    final int maxTry;
     final int connectTimeOut;
     final int readTimeOut;
 
@@ -66,7 +69,7 @@ public class VanGogh {
 
     final List<Transformation> transformations;
 
-    final Drawable defaultLoading;
+    final Drawable defaultPlaceholder;
     final Drawable defaultError;
 
     final boolean fade;
@@ -118,7 +121,7 @@ public class VanGogh {
     private VanGogh(Builder builder, Cache<Bitmap> memoryCache, DiskCache diskCache) {
         mostRecentFirst = builder.mostRecentFirst;
         maxRunning = builder.maxRunning;
-        retryCount = builder.retryCount;
+        maxTry = builder.retryCount;
         connectTimeOut = builder.connectTimeOut;
         readTimeOut = builder.readTimeOut;
         interceptors = Utils.immutableList(builder.interceptors);
@@ -128,12 +131,39 @@ public class VanGogh {
         context = builder.context;
         indicatorEnabled = builder.debug;
         transformations = Utils.immutableList(builder.transformations);
-        defaultLoading = builder.defaultLoading;
+        defaultPlaceholder = builder.defaultLoading;
         defaultError = builder.defaultError;
         fade = builder.fade;
         this.memoryCache = memoryCache;
         this.diskCache = diskCache;
         this.dispatcher = new Dispatcher(this, builder.executor);
+    }
+
+    void cancelExistingTask(int uniqueCode) {
+        Task task = uniqueCodeToTask.get(uniqueCode);
+        if (task != null) {
+            uniqueCodeToTask.delete(uniqueCode);
+            task.cancel();
+            dispatcher.dispatchCancel(task);
+        }
+    }
+
+    void enqueueAndSubmit(Task task) {
+        final int uniqueCode = task.target.uniqueCode();
+        if (uniqueCodeToTask.get(uniqueCode) != task) {
+            cancelExistingTask(uniqueCode);
+            uniqueCodeToTask.put(uniqueCode, task);
+        }
+        submit(task);
+    }
+
+    void submit(Task task) {
+        dispatcher.dispatchSubmit(task);
+    }
+
+    @Nullable
+    Bitmap getFromMemoryCache(String key) {
+        return memoryCache.get(key);
     }
 
     /**
@@ -214,7 +244,7 @@ public class VanGogh {
     }
 
     void enqueue(Task task) {
-        dispatcher.enqueue(task);
+//        dispatcher.enqueue(task);
     }
 
     Resources resources() {
@@ -276,7 +306,7 @@ public class VanGogh {
         }
 
         /**
-         * @param executor The executor service for loading images in the background.
+         * @param executor The executor service for placeholder images in the background.
          */
         public Builder executor(ExecutorService executor) {
             if (executor == null) {
@@ -308,11 +338,11 @@ public class VanGogh {
 
         /**
          * @param retryCount The maximum number of retries.
-         * @throws IllegalArgumentException if the retryCount less than 0.
+         * @throws IllegalArgumentException if the maxTry less than 0.
          */
         public Builder retryCount(int retryCount) {
             if (retryCount < 0) {
-                throw new IllegalArgumentException("retryCount < 0");
+                throw new IllegalArgumentException("maxTry < 0");
             }
             this.retryCount = retryCount;
             return this;

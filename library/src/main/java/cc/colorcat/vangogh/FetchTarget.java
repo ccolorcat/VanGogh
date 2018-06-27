@@ -16,39 +16,43 @@
 
 package cc.colorcat.vangogh;
 
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
 /**
  * Author: cxx
- * Date: 2017-07-11
+ * Date: 2018-06-27
  * GitHub: https://github.com/ccolorcat
  */
-class EmptyTarget implements Target {
-    final static Target EMPTY = new EmptyTarget();
+class FetchTarget implements Target {
+    private final Callback callback;
+    private final int uniqueCode;
 
-    private EmptyTarget() {
+    FetchTarget(Callback callback) {
+        this.callback = callback;
+        this.uniqueCode = callback.hashCode();
+    }
+
+    @Override
+    public void onPrepare(Drawable placeHolder) {
 
     }
 
     @Override
-    public void onPrepare(@Nullable Drawable placeHolder) {
-
-    }
-
-    @Override
-    public void onLoaded(@NonNull Drawable drawable, @NonNull From from) {
-
+    public void onLoaded(@NonNull Drawable loaded, @NonNull From from) {
+        BitmapDrawable bd = (BitmapDrawable) loaded;
+        callback.onSuccess(bd.getBitmap());
     }
 
     @Override
     public void onFailed(Drawable error, @NonNull Throwable cause) {
-
+        callback.onError(cause);
     }
 
     @Override
     public int uniqueCode() {
-        return 0;
+        return this.uniqueCode;
     }
 }

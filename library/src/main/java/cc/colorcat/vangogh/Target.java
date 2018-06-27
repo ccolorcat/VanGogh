@@ -29,7 +29,7 @@ public interface Target {
 
     void onPrepare(Drawable placeHolder);
 
-    void onLoaded(@NonNull Drawable drawable, @NonNull From from);
+    void onLoaded(@NonNull Drawable loaded, @NonNull From from);
 
     void onFailed(Drawable error, @NonNull Throwable cause);
 

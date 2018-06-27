@@ -26,8 +26,8 @@ import android.widget.ImageView;
  */
 class ImageViewTarget extends ViewTarget<ImageView> {
 
-    ImageViewTarget(ImageView view, Object tag) {
-        super(view, tag);
+    ImageViewTarget(ImageView view) {
+        super(view);
     }
 
     @Override
