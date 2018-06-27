@@ -33,9 +33,8 @@ class Call implements Runnable {
     private final VanGogh vanGogh;
     private final AtomicInteger count;
 
-    Task task;
-    List<Task> tasks;
-
+    final String key;
+    final List<Task> tasks = new ArrayList<>(4);
     Future future;
     Result result;
     Bitmap bitmap;
@@ -44,30 +43,21 @@ class Call implements Runnable {
 
     Call(VanGogh vanGogh, Task task) {
         this.vanGogh = vanGogh;
-        this.task = task;
         this.count = new AtomicInteger(vanGogh.maxTry);
+        this.key = task.key();
+        this.tasks.add(task);
     }
 
     void attach(Task task) {
-        if (this.task == null) {
-            this.task = task;
-            return;
-        }
-        if (tasks == null) {
-            tasks = new ArrayList<>(4);
-        }
         tasks.add(task);
     }
 
     void detach(Task task) {
-        if (tasks != null) {
-            tasks.remove(task);
-        }
+        tasks.remove(task);
     }
 
     boolean tryCancel() {
-        return task == null
-                && (tasks == null || tasks.isEmpty())
+        return tasks.isEmpty()
                 && future != null
                 && future.cancel(false);
     }
@@ -78,8 +68,9 @@ class Call implements Runnable {
 
     @Override
     public void run() {
+        final Task task = tasks.get(0);
         try {
-            Result result = getResultWithInterceptor();
+            Result result = getResultWithInterceptor(task);
             bitmap = result.bitmap();
             from = result.from();
         } catch (IOException e) {
@@ -104,7 +95,7 @@ class Call implements Runnable {
         }
     }
 
-    private Result getResultWithInterceptor() throws IOException {
+    private Result getResultWithInterceptor(Task task) throws IOException {
         count.decrementAndGet();
         List<Interceptor> users = vanGogh.interceptors;
         List<Interceptor> interceptors = new ArrayList<>(users.size() + 7);
