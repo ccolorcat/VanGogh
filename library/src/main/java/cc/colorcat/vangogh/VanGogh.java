@@ -24,6 +24,9 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
@@ -45,9 +48,27 @@ import java.util.concurrent.TimeUnit;
  */
 @SuppressWarnings("unused")
 public class VanGogh {
+    static final int TASK_BATCH_RESUME = 0x101;
+
+    private static class MainHandler extends Handler {
+        private final VanGogh vanGogh;
+
+        MainHandler(VanGogh vanGogh) {
+            super(Looper.getMainLooper());
+            this.vanGogh = vanGogh;
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+        }
+    }
+
     @SuppressLint("StaticFieldLeak")
     private static volatile VanGogh singleton;
 
+    Handler handler = new MainHandler(this);
+    private List<Call> batch = new ArrayList<>();
     private SparseArray<Task> uniqueCodeToTask = new SparseArray<>(16);
     final Dispatcher dispatcher;
     final boolean mostRecentFirst;
@@ -159,6 +180,10 @@ public class VanGogh {
 
     void submit(Task task) {
         dispatcher.dispatchSubmit(task);
+    }
+
+    void batch(Call call) {
+        this.batch.add(call);
     }
 
     @Nullable

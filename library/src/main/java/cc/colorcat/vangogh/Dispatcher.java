@@ -23,6 +23,7 @@ import android.util.SparseArray;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,54 +44,146 @@ class Dispatcher {
     static final int CALL_DELAY_NEXT_BATCH = 105;
     static final int TAG_PAUSE = 106;
     static final int TAG_RESUME = 107;
-    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Handler handler;
 
     private final VanGogh vanGogh;
     private final ExecutorService executor;
     private final Map<String, Call> keyToCall = new LinkedHashMap<>();
-    private final List<Call> batch = new ArrayList<>(4);
     private final Set<Object> pausedTags = new HashSet<>();
-    private final SparseArray<Task> pausedTask = new SparseArray<>();
+    private final SparseArray<Task> pausedTasks = new SparseArray<>();
 
     Dispatcher(VanGogh vanGogh, ExecutorService executor) {
         this.vanGogh = vanGogh;
         this.executor = executor;
+        this.handler = vanGogh.handler;
     }
 
     void dispatchSubmit(Task task) {
-        task.onPreExecute();
         if (pausedTags.contains(task.tag)) {
-            pausedTask.put(task.target.uniqueCode(), task);
+            pausedTasks.put(task.target.uniqueCode(), task);
             return;
         }
+        task.onPreExecute();
         Call call = keyToCall.get(task.key);
         if (call != null) {
             call.attach(task);
+        } else {
+            call = new Call(vanGogh, task);
+            keyToCall.put(call.key, call);
+            call.future = executor.submit(call);
         }
     }
 
     void dispatchCancel(Task task) {
-
+        final String key = task.key;
+        Call call = keyToCall.get(key);
+        if (call != null) {
+            call.detach(task);
+            if (call.tryCancel()) {
+                keyToCall.remove(key);
+            }
+        }
+        if (pausedTags.contains(task.tag)) {
+            pausedTasks.remove(task.target.uniqueCode());
+        }
     }
 
     void dispatchSuccess(Call call) {
-
+        keyToCall.remove(call.key);
+        batch(call);
     }
 
     void dispatchRetry(Call call) {
-
+        if (call.isCanceled()) {
+            return;
+        }
+        call.future = executor.submit(call);
     }
 
     void dispatchFailed(Call call) {
+        keyToCall.remove(call.key);
+        batch(call);
+    }
+
+    void dispatchPauseTag(Object tag) {
+        if (!pausedTags.add(tag)) {
+            return;
+        }
+        Iterator<Call> iterator = keyToCall.values().iterator();
+        while (iterator.hasNext()) {
+            Call call = iterator.next();
+            if (call.tasks.isEmpty()) {
+                continue;
+            }
+            for (int i = 0, size = call.tasks.size(); i < size; ++i) {
+                Task task = call.tasks.get(i);
+                if (!tag.equals(task.tag)) {
+                    continue;
+                }
+                call.detach(task);
+                pausedTasks.put(task.target.uniqueCode(), task);
+            }
+            if (call.tryCancel()) {
+                iterator.remove();
+            }
+        }
+    }
+
+    void dispatchResumeTag(Object tag) {
+        if (!pausedTags.remove(tag)) {
+            return;
+        }
+        List<Task> resumed = null;
+        for (int i = 0; i < pausedTasks.size(); ++i) {
+            Task task = pausedTasks.valueAt(i);
+            if (tag.equals(task.tag)) {
+                if (resumed == null) {
+                    resumed = new ArrayList<>(8);
+                }
+                resumed.add(task);
+                pausedTasks.removeAt(i);
+            }
+        }
+        if (resumed != null) {
+            handler.sendMessage(handler.obtainMessage(VanGogh.TASK_BATCH_RESUME, resumed));
+        }
+    }
+
+    private void performPauseTag(Object tag) {
+        if (!pausedTags.add(tag)) {
+            return;
+        }
+        Iterator<Call> iterator = keyToCall.values().iterator();
+        while (iterator.hasNext()) {
+            Call call = iterator.next();
+            if (call.tasks.isEmpty()) {
+                continue;
+            }
+            for (int i = 0, size = call.tasks.size(); i < size; ++i) {
+                Task task = call.tasks.get(i);
+                if (!tag.equals(task.tag)) {
+                    continue;
+                }
+                call.detach(task);
+                pausedTasks.put(task.target.uniqueCode(), task);
+            }
+            if (call.tryCancel()) {
+                iterator.remove();
+            }
+        }
+    }
+
+    private void batch(Call call) {
+        if (call.isCanceled()) {
+            return;
+        }
+        if (call.bitmap != null) {
+            call.bitmap.prepareToDraw();
+        }
 
     }
 
-    private void performResumeTag(Object obj) {
-
-    }
-
-    private void performPauseTag(Object obj) {
-
+    private void performResumeTag(Object tag) {
     }
 
     private void performBatchComplete() {
@@ -116,6 +209,8 @@ class Dispatcher {
 
     private void performSubmit(Task task) {
     }
+
+
 
 
     void pause() {

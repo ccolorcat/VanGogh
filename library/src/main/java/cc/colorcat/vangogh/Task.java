@@ -125,8 +125,7 @@ public final class Task {
         if (result != null) {
             Bitmap bitmap = result.bitmap();
             From from = result.from();
-            boolean animating = fade && from != From.MEMORY;
-            Drawable drawable = new VanGoghDrawable(vanGogh.context, bitmap, from, animating, indicatorEnabled);
+            Drawable drawable = new VanGoghDrawable(vanGogh.context, bitmap, from, fade, indicatorEnabled);
             target.onLoaded(drawable, from);
             callback.onSuccess(bitmap);
         } else if (cause != null) {

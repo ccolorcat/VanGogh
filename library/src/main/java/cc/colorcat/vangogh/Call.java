@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 class Call implements Runnable {
     private final VanGogh vanGogh;
     private final AtomicInteger count;
+    private final Task original;
 
     final String key;
     final List<Task> tasks = new ArrayList<>(4);
@@ -41,11 +42,12 @@ class Call implements Runnable {
     From from;
     Throwable cause;
 
-    Call(VanGogh vanGogh, Task task) {
+    Call(VanGogh vanGogh, Task original) {
         this.vanGogh = vanGogh;
         this.count = new AtomicInteger(vanGogh.maxTry);
-        this.key = task.key();
-        this.tasks.add(task);
+        this.original = original;
+        this.key = original.key();
+        this.tasks.add(original);
     }
 
     void attach(Task task) {
@@ -68,15 +70,14 @@ class Call implements Runnable {
 
     @Override
     public void run() {
-        final Task task = tasks.get(0);
         try {
-            Result result = getResultWithInterceptor(task);
+            Result result = getResultWithInterceptor(original);
             bitmap = result.bitmap();
             from = result.from();
         } catch (IOException e) {
             cause = e;
         } catch (IndexOutOfBoundsException e) {
-            cause = new UnsupportedOperationException("unsupported uri: " + task.uri());
+            cause = new UnsupportedOperationException("unsupported uri: " + original.uri());
         } catch (OutOfMemoryError e) {
             cause = e;
         } catch (Exception e) {
