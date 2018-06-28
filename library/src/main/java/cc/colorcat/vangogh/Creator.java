@@ -250,6 +250,7 @@ public final class Creator {
             Throwable cause = new UnsupportedOperationException("unsupported uri: " + uri);
             this.target.onFailed(error, cause);
             this.callback.onError(cause);
+            LogUtils.e(cause);
             return;
         }
 

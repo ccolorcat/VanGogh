@@ -43,7 +43,7 @@ class DiskCacheInterceptor implements Interceptor {
             DiskCache.Snapshot snapshot = diskCache.getSnapshot(task.stableKey());
             Bitmap bitmap = decodeOrDelete(snapshot, options, false);
             if (bitmap != null) {
-                return new Result(bitmap, From.DISK);
+                return Result.create(bitmap, From.DISK);
             }
         }
 
@@ -57,7 +57,7 @@ class DiskCacheInterceptor implements Interceptor {
                 try {
                     Utils.dumpAndClose(is, os);
                     Bitmap bitmap = decodeOrDelete(snapshot, options, true);
-                    result = new Result(bitmap, resultFrom);
+                    result = Result.create(bitmap, resultFrom);
                 } catch (IOException e) {
                     snapshot.requireDelete();
                     throw e;

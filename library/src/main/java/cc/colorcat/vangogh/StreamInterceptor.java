@@ -41,6 +41,6 @@ class StreamInterceptor implements Interceptor {
                 throw new IOException("decode failed, uri = " + task.uri());
             }
         }
-        return new Result(bitmap, result.from());
+        return Result.create(bitmap, result.from());
     }
 }

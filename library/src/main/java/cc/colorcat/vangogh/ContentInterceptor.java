@@ -47,7 +47,7 @@ class ContentInterceptor implements Interceptor {
             if (ContentResolver.SCHEME_FILE.equals(scheme)
                     || ContentResolver.SCHEME_CONTENT.equals(scheme)
                     || ContentResolver.SCHEME_ANDROID_RESOURCE.equals(scheme)) {
-                return new Result(context.getContentResolver().openInputStream(uri), From.DISK);
+                return Result.create(context.getContentResolver().openInputStream(uri), From.DISK);
             }
         }
         return chain.proceed(task);

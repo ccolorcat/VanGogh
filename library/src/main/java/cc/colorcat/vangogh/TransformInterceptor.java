@@ -40,6 +40,6 @@ class TransformInterceptor implements Interceptor {
         for (int i = 0, size = transformations.size(); i < size; ++i) {
             bitmap = transformations.get(i).transform(bitmap);
         }
-        return new Result(bitmap, result.from());
+        return Result.create(bitmap, result.from());
     }
 }
