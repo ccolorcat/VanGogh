@@ -21,11 +21,10 @@ import android.widget.ImageView;
 
 /**
  * Author: cxx
- * Date: 2017-07-10
+ * Date: 2018-06-28
  * GitHub: https://github.com/ccolorcat
  */
 class ImageViewTarget extends ViewTarget<ImageView> {
-
     ImageViewTarget(ImageView view) {
         super(view);
     }

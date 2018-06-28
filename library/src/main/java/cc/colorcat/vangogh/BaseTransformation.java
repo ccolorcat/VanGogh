@@ -16,16 +16,22 @@
 
 package cc.colorcat.vangogh;
 
+import android.graphics.Bitmap;
+
 /**
  * Author: cxx
- * Date: 2018-06-25
+ * Date: 2018-06-11
  * GitHub: https://github.com/ccolorcat
  */
-public abstract class BaseTransformation implements Transformation {
+public class BaseTransformation implements Transformation {
+    @Override
+    public Bitmap transform(Bitmap source) {
+        return source;
+    }
 
     @Override
     public String getKey() {
         Class clazz = getClass();
-        return clazz.getSimpleName() + '.' + clazz.getPackage().getName();
+        return clazz.getSimpleName() + "." + clazz.getPackage().getName();
     }
 }

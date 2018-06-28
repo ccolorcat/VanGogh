@@ -16,23 +16,23 @@
 
 package cc.colorcat.vangogh;
 
-import android.graphics.Bitmap;
-
-import java.io.IOException;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
 
 /**
  * Author: cxx
- * Date: 2017-07-12
+ * Date: 2018-06-28
  * GitHub: https://github.com/ccolorcat
  */
-class WatermarkInterceptor implements Interceptor {
+public abstract class WeakTarget<T> implements Target {
+    protected final Reference<T> reference;
+
+    public WeakTarget(T t) {
+        reference = new WeakReference<>(t);
+    }
 
     @Override
-    public Result intercept(Chain chain) throws IOException {
-        Task task = chain.task();
-        Result result = chain.proceed(task);
-        From from = result.from();
-        Bitmap bitmap = Utils.makeWatermark(result.bitmap(), from.debugColor, task.options());
-        return new Result(bitmap, from);
+    public Object unique() {
+        return reference.get();
     }
 }

@@ -20,26 +20,19 @@ import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
 import android.view.View;
 
-import java.lang.ref.Reference;
-import java.lang.ref.WeakReference;
-
 /**
  * Author: cxx
  * Date: 2017-12-07
  * GitHub: https://github.com/ccolorcat
  */
-public abstract class ViewTarget<V extends View> implements Target {
-    private final Reference<? extends V> ref;
-    private final int uniqueCode;
-
-    protected ViewTarget(V view) {
-        this.ref = new WeakReference<>(view);
-        this.uniqueCode = view.hashCode();
+public abstract class ViewTarget<V extends View> extends WeakTarget<V> {
+    public ViewTarget(V v) {
+        super(v);
     }
 
     @Override
-    public void onPrepare(Drawable placeHolder) {
-        setDrawable(placeHolder);
+    public void onPrepare(Drawable placeholder) {
+        setDrawable(placeholder);
     }
 
     @Override
@@ -52,13 +45,8 @@ public abstract class ViewTarget<V extends View> implements Target {
         setDrawable(error);
     }
 
-    @Override
-    public int uniqueCode() {
-        return uniqueCode;
-    }
-
     private void setDrawable(Drawable drawable) {
-        V view = ref.get();
+        V view = reference.get();
         if (view != null) {
             setDrawable(view, drawable);
         }

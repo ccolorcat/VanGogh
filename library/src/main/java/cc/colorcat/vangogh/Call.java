@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Author: cxx
@@ -31,35 +30,37 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 class Call implements Runnable {
     private final VanGogh vanGogh;
-    private final AtomicInteger count;
-    private final Task original;
+    private int count;
 
-    final String key;
-    final List<Task> tasks = new ArrayList<>(4);
-    Future future;
-    Result result;
-    Bitmap bitmap;
+    final List<Action> actions = new ArrayList<>(4);
+    final Task task;
+
+    Future<?> future;
     From from;
+    Bitmap bitmap;
     Throwable cause;
 
-    Call(VanGogh vanGogh, Task original) {
+    Call(VanGogh vanGogh, Action action) {
         this.vanGogh = vanGogh;
-        this.count = new AtomicInteger(vanGogh.maxTry);
-        this.original = original;
-        this.key = original.key();
-        this.tasks.add(original);
+        this.count = vanGogh.maxTry;
+        this.actions.add(action);
+        this.task = action.task;
     }
 
-    void attach(Task task) {
-        tasks.add(task);
+    void attach(Action action) {
+        actions.add(action);
     }
 
-    void detach(Task task) {
-        tasks.remove(task);
+    void detach(Action action) {
+        actions.remove(action);
+    }
+
+    String key() {
+        return task.key();
     }
 
     boolean tryCancel() {
-        return tasks.isEmpty()
+        return actions.isEmpty()
                 && future != null
                 && future.cancel(false);
     }
@@ -71,13 +72,13 @@ class Call implements Runnable {
     @Override
     public void run() {
         try {
-            Result result = getResultWithInterceptor(original);
+            Result result = getResultWithInterceptor();
             bitmap = result.bitmap();
             from = result.from();
         } catch (IOException e) {
             cause = e;
         } catch (IndexOutOfBoundsException e) {
-            cause = new UnsupportedOperationException("unsupported uri: " + original.uri());
+            cause = new UnsupportedOperationException("unsupported uri: " + task.uri());
         } catch (OutOfMemoryError e) {
             cause = e;
         } catch (Exception e) {
@@ -85,7 +86,7 @@ class Call implements Runnable {
         } finally {
             if (bitmap != null) {
                 vanGogh.dispatcher.dispatchSuccess(this);
-            } else if (cause instanceof IOException && count.get() > 0) {
+            } else if (cause instanceof IOException && count > 0) {
                 vanGogh.dispatcher.dispatchRetry(this);
             } else {
                 vanGogh.dispatcher.dispatchFailed(this);
@@ -96,21 +97,9 @@ class Call implements Runnable {
         }
     }
 
-    private Result getResultWithInterceptor(Task task) throws IOException {
-        count.decrementAndGet();
-        List<Interceptor> users = vanGogh.interceptors;
-        List<Interceptor> interceptors = new ArrayList<>(users.size() + 7);
-        interceptors.addAll(users);
-        interceptors.add(new KeyMemoryCacheInterceptor(vanGogh.memoryCache));
-        interceptors.add(new TransformInterceptor());
-        interceptors.add(new StableKeyMemoryCacheInterceptor(vanGogh.memoryCache));
-        interceptors.add(new StreamInterceptor());
-        interceptors.add(new ContentInterceptor(vanGogh.context));
-        if (vanGogh.diskCache != null) {
-            interceptors.add(new DiskCacheInterceptor(vanGogh.diskCache));
-        }
-        interceptors.add(new NetworkInterceptor());
-        Interceptor.Chain chain = new RealInterceptorChain(interceptors, 0, task, vanGogh.downloader.clone());
+    private Result getResultWithInterceptor() throws IOException {
+        --count;
+        Interceptor.Chain chain = new RealInterceptorChain(vanGogh.interceptors, 0, task, vanGogh.downloader.clone());
         return chain.proceed(task);
     }
 }

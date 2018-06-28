@@ -21,14 +21,13 @@ import android.support.annotation.NonNull;
 
 /**
  * Author: cxx
- * Date: 2018-06-27
+ * Date: 2017-12-14
  * GitHub: https://github.com/ccolorcat
  */
 class EmptyCallback implements Callback {
-    static final Callback INSTANCE = new EmptyCallback();
+    final static Callback INSTANCE = new EmptyCallback();
 
     private EmptyCallback() {
-
     }
 
     @Override

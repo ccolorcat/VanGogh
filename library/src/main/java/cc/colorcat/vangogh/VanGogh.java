@@ -28,14 +28,17 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.support.annotation.DrawableRes;
+import android.support.annotation.MainThread;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
-import android.util.SparseArray;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -48,52 +51,200 @@ import java.util.concurrent.TimeUnit;
  */
 @SuppressWarnings("unused")
 public class VanGogh {
-    static final int TASK_BATCH_RESUME = 0x101;
-
-    private static class MainHandler extends Handler {
-        private final VanGogh vanGogh;
-
-        MainHandler(VanGogh vanGogh) {
-            super(Looper.getMainLooper());
-            this.vanGogh = vanGogh;
-        }
-
-        @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-        }
-    }
+    static final int CALL_BATCH_COMPLETE = 0x15;
+    static final int ACTION_BATCH_RESUME = 0x16;
 
     @SuppressLint("StaticFieldLeak")
     private static volatile VanGogh singleton;
 
-    Handler handler = new MainHandler(this);
-    private List<Call> batch = new ArrayList<>();
-    private SparseArray<Task> uniqueCodeToTask = new SparseArray<>(16);
+    private final Map<Object, Action> targetUniqueToAction;
     final Dispatcher dispatcher;
-    final boolean mostRecentFirst;
-    final int maxRunning;
-    final int maxTry;
+    final List<Interceptor> interceptors;
+
+    final Context context;
+    private final Cache<Bitmap> memoryCache;
+
+    final Downloader downloader;
     final int connectTimeOut;
     final int readTimeOut;
-
-    final List<Interceptor> interceptors;
-    final Downloader downloader;
-    final int defaultFromPolicy;
-
-    final Cache<Bitmap> memoryCache;
-    final DiskCache diskCache;
-
-    final Task.Options defaultOptions;
-    final Context context;
-    final boolean indicatorEnabled;
+    final int fromPolicy;
+    final int maxTry;
 
     final List<Transformation> transformations;
-
-    final Drawable defaultPlaceholder;
-    final Drawable defaultError;
-
+    final Drawable placeholder;
+    final Drawable error;
+    final Task.Options options;
+    final boolean indicatorEnabled;
     final boolean fade;
+
+    private VanGogh(Builder builder, Cache<Bitmap> memoryCache, DiskCache diskCache) {
+        this.context = builder.context;
+        this.memoryCache = memoryCache;
+        this.downloader = builder.downloader;
+        this.connectTimeOut = builder.connectTimeOut;
+        this.readTimeOut = builder.readTimeOut;
+        this.fromPolicy = builder.fromPolicy;
+        this.maxTry = builder.maxTry;
+        this.transformations = Utils.immutableList(builder.transformations);
+        this.placeholder = builder.placeholder;
+        this.error = builder.error;
+        this.options = builder.options;
+        this.indicatorEnabled = builder.indicatorEnabled;
+        this.fade = builder.fade;
+        this.targetUniqueToAction = new WeakHashMap<>();
+        this.dispatcher = new Dispatcher(this, builder.executor, new MainHandler(this));
+        List<Interceptor> allInterceptors = new ArrayList<>(builder.interceptors.size() + 7);
+        allInterceptors.addAll(builder.interceptors);
+        allInterceptors.add(new KeyMemoryCacheInterceptor(this.memoryCache));
+        allInterceptors.add(new TransformInterceptor());
+        allInterceptors.add(new StableKeyMemoryCacheInterceptor(this.memoryCache));
+        allInterceptors.add(new StreamInterceptor());
+        allInterceptors.add(new ContentInterceptor(this.context));
+        if (diskCache != null) {
+            allInterceptors.add(new DiskCacheInterceptor(diskCache));
+        }
+        allInterceptors.add(new NetworkInterceptor());
+        this.interceptors = Utils.immutableList(allInterceptors);
+    }
+
+    @Nullable
+    Bitmap obtainFromMemoryCache(String key) {
+        return memoryCache.get(key);
+    }
+
+    void cancelExistingAction(Object targetUnique) {
+        Action action = targetUniqueToAction.remove(targetUnique);
+        if (action != null) {
+            action.cancel();
+            dispatcher.dispatchCancel(action);
+        }
+    }
+
+    @MainThread
+    void enqueueAndSubmit(Action action) {
+        Object targetUnique = action.targetUnique();
+        if (targetUnique != null && targetUniqueToAction.get(targetUnique) != action) {
+            cancelExistingAction(targetUnique);
+            targetUniqueToAction.put(targetUnique, action);
+        }
+        submit(action);
+    }
+
+    @MainThread
+    void submit(Action action) {
+        dispatcher.dispatchSubmit(action);
+    }
+
+    void complete(Call call) {
+        List<Action> actions = call.actions;
+        if (!actions.isEmpty()) {
+            Bitmap result = call.bitmap;
+            From from = call.from;
+            Throwable cause = call.cause;
+            for (int i = 0, size = actions.size(); i < size; ++i) {
+                deliverAction(result, from, cause, actions.get(i));
+            }
+        }
+    }
+
+    @MainThread
+    void resumeAction(Action action) {
+        Bitmap bitmap = null;
+        if ((action.task.fromPolicy() & From.MEMORY.policy) != 0) {
+            bitmap = obtainFromMemoryCache(action.key);
+        }
+        if (bitmap != null) {
+            deliverAction(bitmap, From.MEMORY, null, action);
+        } else {
+            enqueueAndSubmit(action);
+        }
+    }
+
+    private void deliverAction(Bitmap result, From from, Throwable cause, Action action) {
+        if (action.isCanceled()) {
+            return;
+        }
+        targetUniqueToAction.remove(action.targetUnique());
+        if (result != null) {
+            action.onSuccess(result, from);
+        } else {
+            action.onFailed(cause);
+        }
+    }
+
+    public void pauseTag(Object tag) {
+        dispatcher.dispatchPauseTag(tag);
+    }
+
+    public void resumeTag(Object tag) {
+        dispatcher.dispatchResumeTag(tag);
+    }
+
+    public void cancelTag(Object tag) {
+        Utils.checkMain();
+        for (Iterator<Action> i = targetUniqueToAction.values().iterator(); i.hasNext(); ) {
+            Action action = i.next();
+            if (action.tag.equals(tag)) {
+                i.remove();
+                action.cancel();
+                dispatcher.dispatchCancel(action);
+            }
+        }
+    }
+
+    /**
+     * Create a {@link Creator} using the specified path.
+     *
+     * @param uri May be a remote URL, file or android resource.
+     * @see #load(Uri)
+     * @see #load(File)
+     * @see #load(int)
+     */
+    public Creator load(String uri) {
+        return this.load(TextUtils.isEmpty(uri) ? Uri.EMPTY : Uri.parse(uri));
+    }
+
+    /**
+     * Create a {@link Creator} using the specified drawable resource ID.
+     *
+     * @see #load(Uri)
+     * @see #load(File)
+     * @see #load(String)
+     */
+    public Creator load(@DrawableRes int resId) {
+        return this.load(VanGogh.toUri(context, resId));
+    }
+
+    /**
+     * Create a {@link Creator} using the specified image file.
+     *
+     * @see #load(Uri)
+     * @see #load(String)
+     * @see #load(int)
+     */
+    public Creator load(File file) {
+        return this.load(file == null ? Uri.EMPTY : Uri.fromFile(file));
+    }
+
+    /**
+     * Create a {@link Creator} using the specified uri.
+     *
+     * @see #load(String)
+     * @see #load(File)
+     * @see #load(int)
+     */
+    public Creator load(Uri uri) {
+        Uri u = (uri == null ? Uri.EMPTY : uri);
+        String stableKey = Utils.createStableKey(u);
+        return new Creator(this, u, stableKey);
+    }
+
+    /**
+     * Clear all cached bitmaps from the memory.
+     */
+    public void clearMemoryCache() {
+        memoryCache.clear();
+    }
 
     /**
      * Set the global instance.
@@ -130,7 +281,8 @@ public class VanGogh {
         return singleton;
     }
 
-    public static Uri toUri(Resources resources, @DrawableRes int resId) {
+    public static Uri toUri(Context context, @DrawableRes int resId) {
+        final Resources resources = context.getResources();
         return new Uri.Builder()
                 .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
                 .authority(resources.getResourcePackageName(resId))
@@ -139,194 +291,79 @@ public class VanGogh {
                 .build();
     }
 
-    private VanGogh(Builder builder, Cache<Bitmap> memoryCache, DiskCache diskCache) {
-        mostRecentFirst = builder.mostRecentFirst;
-        maxRunning = builder.maxRunning;
-        maxTry = builder.retryCount;
-        connectTimeOut = builder.connectTimeOut;
-        readTimeOut = builder.readTimeOut;
-        interceptors = Utils.immutableList(builder.interceptors);
-        downloader = builder.downloader;
-        defaultFromPolicy = builder.defaultFromPolicy;
-        defaultOptions = builder.defaultOptions;
-        context = builder.context;
-        indicatorEnabled = builder.debug;
-        transformations = Utils.immutableList(builder.transformations);
-        defaultPlaceholder = builder.defaultLoading;
-        defaultError = builder.defaultError;
-        fade = builder.fade;
-        this.memoryCache = memoryCache;
-        this.diskCache = diskCache;
-        this.dispatcher = new Dispatcher(this, builder.executor);
-    }
 
-    void cancelExistingTask(int uniqueCode) {
-        Task task = uniqueCodeToTask.get(uniqueCode);
-        if (task != null) {
-            uniqueCodeToTask.delete(uniqueCode);
-            task.cancel();
-            dispatcher.dispatchCancel(task);
+    private static class MainHandler extends Handler {
+        private final VanGogh vanGogh;
+
+        MainHandler(VanGogh vanGogh) {
+            super(Looper.getMainLooper());
+            this.vanGogh = vanGogh;
         }
-    }
 
-    void enqueueAndSubmit(Task task) {
-        final int uniqueCode = task.target.uniqueCode();
-        if (uniqueCodeToTask.get(uniqueCode) != task) {
-            cancelExistingTask(uniqueCode);
-            uniqueCodeToTask.put(uniqueCode, task);
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case VanGogh.CALL_BATCH_COMPLETE: {
+                    @SuppressWarnings("unchecked")
+                    List<Call> calls = (List<Call>) msg.obj;
+                    for (int i = 0, size = calls.size(); i < size; ++i) {
+                        vanGogh.complete(calls.get(i));
+                    }
+                    break;
+                }
+                case VanGogh.ACTION_BATCH_RESUME: {
+                    @SuppressWarnings("unchecked")
+                    List<Action> actions = (List<Action>) msg.obj;
+                    for (int i = 0, size = actions.size(); i < size; ++i) {
+                        Action action = actions.get(i);
+                        vanGogh.resumeAction(action);
+                    }
+                    break;
+                }
+                default:
+                    throw new AssertionError("Unknown handler message received: " + msg.what);
+            }
         }
-        submit(task);
-    }
-
-    void submit(Task task) {
-        dispatcher.dispatchSubmit(task);
-    }
-
-    void batch(Call call) {
-        this.batch.add(call);
-    }
-
-    @Nullable
-    Bitmap getFromMemoryCache(String key) {
-        return memoryCache.get(key);
-    }
-
-    /**
-     * Create a {@link Task.Creator} using the specified path.
-     *
-     * @param uri May be a remote URL, file or android resource.
-     * @see #load(Uri)
-     * @see #load(File)
-     * @see #load(int)
-     */
-    public Task.Creator load(String uri) {
-        return this.load(TextUtils.isEmpty(uri) ? Uri.EMPTY : Uri.parse(uri));
-    }
-
-    /**
-     * Create a {@link Task.Creator} using the specified drawable resource ID.
-     *
-     * @see #load(Uri)
-     * @see #load(File)
-     * @see #load(String)
-     */
-    public Task.Creator load(@DrawableRes int resId) {
-        return this.load(VanGogh.toUri(resources(), resId));
-    }
-
-    /**
-     * Create a {@link Task.Creator} using the specified image file.
-     *
-     * @see #load(Uri)
-     * @see #load(String)
-     * @see #load(int)
-     */
-    public Task.Creator load(File file) {
-        return this.load(file == null ? Uri.EMPTY : Uri.fromFile(file));
-    }
-
-    /**
-     * Create a {@link Task.Creator} using the specified uri.
-     *
-     * @see #load(String)
-     * @see #load(File)
-     * @see #load(int)
-     */
-    public Task.Creator load(Uri uri) {
-        return new Task.Creator(this, uri == null ? Uri.EMPTY : uri);
-    }
-
-    /**
-     * Pause all tasks.
-     *
-     * @see #resume()
-     */
-    public void pause() {
-        dispatcher.pause();
-    }
-
-    /**
-     * Resume all tasks.
-     *
-     * @see #pause()
-     */
-    public void resume() {
-        dispatcher.resume();
-    }
-
-    /**
-     * Clear all pending tasks.
-     */
-    public void clear() {
-        dispatcher.clear();
-    }
-
-    /**
-     * Clear all cached bitmaps from the memory.
-     */
-    public void releaseMemory() {
-        memoryCache.clear();
-    }
-
-    void enqueue(Task task) {
-//        dispatcher.enqueue(task);
-    }
-
-    Resources resources() {
-        return context.getResources();
-    }
-
-    Resources.Theme theme() {
-        return context.getTheme();
-    }
-
-    Bitmap checkMemoryCache(String stableKey) {
-        return memoryCache.get(stableKey);
     }
 
 
     public static class Builder {
         private ExecutorService executor;
-        private boolean mostRecentFirst;
-        private int maxRunning;
-        private int retryCount;
-        private int connectTimeOut;
-        private int readTimeOut;
+
+        private Context context;
 
         private List<Interceptor> interceptors;
         private Downloader downloader;
-        private int defaultFromPolicy;
+        private int connectTimeOut;
+        private int readTimeOut;
+        private int fromPolicy;
+        private int maxTry;
 
         private long memoryCacheSize;
         private File cacheDirectory;
         private long diskCacheSize;
 
-        private Task.Options defaultOptions;
-        private Context context;
-        private boolean debug;
-
         private List<Transformation> transformations;
+        private Drawable placeholder;
+        private Drawable error;
+        private Task.Options options;
+        private boolean indicatorEnabled;
         private boolean fade;
 
-        private Drawable defaultLoading;
-        private Drawable defaultError;
-
         public Builder(Context ctx) {
-            mostRecentFirst = true;
-            maxRunning = 4;
-            retryCount = 1;
-            connectTimeOut = 5000;
-            readTimeOut = 5000;
+            context = ctx.getApplicationContext();
             interceptors = new ArrayList<>(4);
             downloader = new HttpDownloader();
-            defaultFromPolicy = From.ANY.policy;
+            connectTimeOut = 5000;
+            readTimeOut = 5000;
+            fromPolicy = From.ANY.policy;
+            maxTry = 1;
             memoryCacheSize = Utils.calculateMemoryCacheSize(ctx);
             cacheDirectory = Utils.getCacheDirectory(ctx);
             diskCacheSize = (long) Math.min(50 * 1024 * 1024, cacheDirectory.getUsableSpace() * 0.1);
-            defaultOptions = new Task.Options();
-            context = ctx.getApplicationContext();
-            debug = false;
             transformations = new ArrayList<>(4);
+            options = new Task.Options();
+            indicatorEnabled = false;
             fade = true;
         }
 
@@ -341,35 +378,26 @@ public class VanGogh {
             return this;
         }
 
-        /**
-         * @param mostRecentFirst LIFO if true, otherwise FIFO, the default is true.
-         */
-        public Builder taskPolicy(boolean mostRecentFirst) {
-            this.mostRecentFirst = mostRecentFirst;
+        public Builder addInterceptor(Interceptor interceptor) {
+            if (interceptor == null) {
+                throw new NullPointerException("interceptor == null");
+            }
+            if (!this.interceptors.contains(interceptor)) {
+                this.interceptors.add(interceptor);
+            }
             return this;
         }
 
         /**
-         * @param maxRunning The maximum number of concurrent tasks.
-         * @throws IllegalArgumentException If the maxRunning less than 1 or greater than 10.
+         * @param downloader The {@link Downloader} will be used for download images.
+         * @throws NullPointerException if downloader is null
+         * @see HttpDownloader
          */
-        public Builder maxRunning(int maxRunning) {
-            if (maxRunning < 1 || maxRunning > 10) {
-                throw new IllegalArgumentException("maxRunning[1, 10] = " + maxRunning);
+        public Builder downloader(Downloader downloader) {
+            if (downloader == null) {
+                throw new NullPointerException("downloader == null");
             }
-            this.maxRunning = maxRunning;
-            return this;
-        }
-
-        /**
-         * @param retryCount The maximum number of retries.
-         * @throws IllegalArgumentException if the maxTry less than 0.
-         */
-        public Builder retryCount(int retryCount) {
-            if (retryCount < 0) {
-                throw new IllegalArgumentException("maxTry < 0");
-            }
-            this.retryCount = retryCount;
+            this.downloader = downloader;
             return this;
         }
 
@@ -389,29 +417,6 @@ public class VanGogh {
             return this;
         }
 
-        public Builder addInterceptor(Interceptor interceptor) {
-            if (interceptor == null) {
-                throw new NullPointerException("interceptor == null");
-            }
-            if (!interceptors.contains(interceptor)) {
-                interceptors.add(interceptor);
-            }
-            return this;
-        }
-
-        /**
-         * @param downloader The {@link Downloader} will be used for download images.
-         * @throws NullPointerException if downloader is null
-         * @see HttpDownloader
-         */
-        public Builder downloader(Downloader downloader) {
-            if (downloader == null) {
-                throw new NullPointerException("downloader == null");
-            }
-            this.downloader = downloader;
-            return this;
-        }
-
         /**
          * The default policy of image source.
          * Any source, <code>From.ANY.policy</code>
@@ -421,9 +426,21 @@ public class VanGogh {
          *
          * @see From
          */
-        public Builder defaultFromPolicy(int fromPolicy) {
+        public Builder fromPolicy(int fromPolicy) {
             From.checkFromPolicy(fromPolicy);
-            this.defaultFromPolicy = fromPolicy;
+            this.fromPolicy = fromPolicy;
+            return this;
+        }
+
+        /**
+         * @param maxTry The maximum number of retries.
+         * @throws IllegalArgumentException if the maxTry <= 0.
+         */
+        public Builder maxTry(int maxTry) {
+            if (maxTry <= 0) {
+                throw new IllegalArgumentException("maxTry <= 0");
+            }
+            this.maxTry = maxTry;
             return this;
         }
 
@@ -451,26 +468,66 @@ public class VanGogh {
             return this;
         }
 
-        public Builder defaultOptions(Task.Options options) {
-            if (options == null) {
-                throw new NullPointerException("options == null");
-            }
-            defaultOptions = options;
-            return this;
-        }
-
-        public Builder debug(boolean debug) {
-            this.debug = debug;
-            return this;
-        }
-
         public Builder addTransformation(Transformation transformation) {
             if (transformation == null) {
                 throw new NullPointerException("transformation == null");
             }
-            if (!transformations.contains(transformation)) {
-                transformations.add(transformation);
+            if (!this.transformations.contains(transformation)) {
+                this.transformations.add(transformation);
             }
+            return this;
+        }
+
+        /**
+         * The default drawable to be used while the image is being loaded.
+         */
+        public Builder placeholder(Drawable placeholder) {
+            this.placeholder = placeholder;
+            return this;
+        }
+
+        /**
+         * The default drawable to be used while the image is being loaded.
+         */
+        public Builder placeholder(@DrawableRes int resId) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                placeholder = context.getDrawable(resId);
+            } else {
+                placeholder = context.getResources().getDrawable(resId);
+            }
+            return this;
+        }
+
+        /**
+         * The default drawable to be used if the request image could not be loaded.
+         */
+        public Builder error(Drawable error) {
+            this.error = error;
+            return this;
+        }
+
+        /**
+         * The default drawable to be used if the request image could not be loaded.
+         */
+        public Builder error(@DrawableRes int resId) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                error = context.getDrawable(resId);
+            } else {
+                error = context.getResources().getDrawable(resId);
+            }
+            return this;
+        }
+
+        public Builder options(Task.Options options) {
+            if (options == null) {
+                throw new NullPointerException("options == null");
+            }
+            this.options = options;
+            return this;
+        }
+
+        public Builder indicator(boolean enabled) {
+            this.indicatorEnabled = enabled;
             return this;
         }
 
@@ -479,47 +536,7 @@ public class VanGogh {
             return this;
         }
 
-        /**
-         * The default drawable to be used while the image is being loaded.
-         */
-        public Builder defaultLoading(Drawable loading) {
-            defaultLoading = loading;
-            return this;
-        }
-
-        /**
-         * The default drawable to be used while the image is being loaded.
-         */
-        public Builder defaultLoading(@DrawableRes int resId) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                defaultLoading = context.getDrawable(resId);
-            } else {
-                defaultLoading = context.getResources().getDrawable(resId);
-            }
-            return this;
-        }
-
-        /**
-         * The default drawable to be used if the request image could not be loaded.
-         */
-        public Builder defaultError(Drawable error) {
-            defaultError = error;
-            return this;
-        }
-
-        /**
-         * The default drawable to be used if the request image could not be loaded.
-         */
-        public Builder defaultError(@DrawableRes int resId) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                defaultError = context.getDrawable(resId);
-            } else {
-                defaultError = context.getResources().getDrawable(resId);
-            }
-            return this;
-        }
-
-        public Builder enableLog(boolean enabled) {
+        public Builder log(boolean enabled) {
             LogUtils.init(enabled);
             return this;
         }
@@ -533,8 +550,8 @@ public class VanGogh {
             }
             if (executor == null) {
                 executor = new ThreadPoolExecutor(
-                        maxRunning,
-                        Math.min(maxRunning + (maxRunning >> 1), 10),
+                        4,
+                        5,
                         10L,
                         TimeUnit.SECONDS,
                         new LinkedBlockingDeque<Runnable>(),

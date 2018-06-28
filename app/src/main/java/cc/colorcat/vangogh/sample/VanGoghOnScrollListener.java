@@ -27,17 +27,22 @@ import cc.colorcat.vangogh.VanGogh;
  * GitHub: https://github.com/ccolorcat
  */
 public final class VanGoghOnScrollListener extends RecyclerView.OnScrollListener implements AbsListView.OnScrollListener {
-    public static VanGoghOnScrollListener get() {
-        return new VanGoghOnScrollListener(null);
+    public static VanGoghOnScrollListener get(Object tag) {
+        return newInstance(tag, null);
     }
 
-    public static VanGoghOnScrollListener newInstance(AbsListView.OnScrollListener listener) {
-        return new VanGoghOnScrollListener(listener);
+    public static VanGoghOnScrollListener newInstance(Object tag, AbsListView.OnScrollListener listener) {
+        if (tag == null) {
+            throw new IllegalArgumentException("tag == null");
+        }
+        return new VanGoghOnScrollListener(tag, listener);
     }
 
+    private final Object mTag;
     private final AbsListView.OnScrollListener mListener;
 
-    private VanGoghOnScrollListener(AbsListView.OnScrollListener listener) {
+    private VanGoghOnScrollListener(Object tag, AbsListView.OnScrollListener listener) {
+        mTag = tag;
         mListener = listener;
     }
 
@@ -67,9 +72,9 @@ public final class VanGoghOnScrollListener extends RecyclerView.OnScrollListener
 
     private void updateVanGoghState(boolean idle) {
         if (idle) {
-            VanGogh.get().resume();
+            VanGogh.get().resumeTag(mTag);
         } else {
-            VanGogh.get().pause();
+            VanGogh.get().pauseTag(mTag);
         }
     }
 }

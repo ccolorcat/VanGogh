@@ -17,7 +17,6 @@
 package cc.colorcat.vangogh;
 
 import android.content.Context;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -31,7 +30,7 @@ import android.graphics.drawable.BitmapDrawable;
  * GitHub: https://github.com/ccolorcat
  */
 public class VanGoghDrawable extends BitmapDrawable {
-    private static final Paint DEBUG_PAINT = new Paint();
+    private static final Paint DEBUG_PAINT;
 
     private final From from;
     private final boolean fade;
@@ -40,6 +39,11 @@ public class VanGoghDrawable extends BitmapDrawable {
 
     private int maxAlpha = 0xFF;
     private int alpha = 0; // [0, maxAlpha]
+
+    static {
+        DEBUG_PAINT = new Paint();
+        DEBUG_PAINT.setStyle(Paint.Style.FILL);
+    }
 
     VanGoghDrawable(Context context, Bitmap bitmap, From from, boolean fade, boolean indicatorEnabled) {
         super(context.getResources(), bitmap);

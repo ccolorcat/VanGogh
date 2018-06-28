@@ -17,9 +17,11 @@
 package cc.colorcat.vangogh;
 
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
-import android.util.SparseArray;
+import android.os.Process;
+import android.support.annotation.MainThread;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -28,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -44,109 +47,106 @@ class Dispatcher {
     static final int CALL_DELAY_NEXT_BATCH = 105;
     static final int TAG_PAUSE = 106;
     static final int TAG_RESUME = 107;
-    private final Handler handler;
 
     private final VanGogh vanGogh;
     private final ExecutorService executor;
-    private final Map<String, Call> keyToCall = new LinkedHashMap<>();
-    private final Set<Object> pausedTags = new HashSet<>();
-    private final SparseArray<Task> pausedTasks = new SparseArray<>();
+    private final Handler mainHandler;
+    private final DispatcherThread dispatcherThread;
+    private final DispatcherHandler handler;
+    private final Map<String, Call> keyToCall;
+    private final List<Call> batch;
+    private final Set<Object> pausedTags;
+    private final Map<Object, Action> pausedActions; // targetUnique to action
 
-    Dispatcher(VanGogh vanGogh, ExecutorService executor) {
+
+    Dispatcher(VanGogh vanGogh, ExecutorService executor, Handler mainHandler) {
         this.vanGogh = vanGogh;
         this.executor = executor;
-        this.handler = vanGogh.handler;
+        this.mainHandler = mainHandler;
+        this.dispatcherThread = new DispatcherThread();
+        this.dispatcherThread.start();
+        Utils.flushStackLocalLeaks(dispatcherThread.getLooper());
+        this.handler = new DispatcherHandler(dispatcherThread.getLooper(), this);
+        this.keyToCall = new LinkedHashMap<>();
+        this.batch = new ArrayList<>(4);
+        this.pausedTags = new HashSet<>();
+        this.pausedActions = new WeakHashMap<>();
     }
 
-    void dispatchSubmit(Task task) {
-        if (pausedTags.contains(task.tag)) {
-            pausedTasks.put(task.target.uniqueCode(), task);
+    @MainThread
+    void dispatchSubmit(Action action) {
+        action.onPreExecute();
+        handler.sendMessage(handler.obtainMessage(ACTION_SUBMIT, action));
+    }
+
+    void dispatchCancel(Action action) {
+        handler.sendMessage(handler.obtainMessage(ACTION_CANCEL, action));
+    }
+
+    void dispatchSuccess(Call call) {
+        handler.sendMessage(handler.obtainMessage(CALL_COMPLETE, call));
+    }
+
+    void dispatchFailed(Call call) {
+        handler.sendMessage(handler.obtainMessage(CALL_FAILED, call));
+    }
+
+    void dispatchRetry(Call call) {
+        handler.sendMessage(handler.obtainMessage(CALL_RETRY, call));
+    }
+
+    void dispatchPauseTag(Object tag) {
+        handler.sendMessage(handler.obtainMessage(TAG_PAUSE, tag));
+    }
+
+    void dispatchResumeTag(Object tag) {
+        handler.sendMessage(handler.obtainMessage(TAG_RESUME, tag));
+    }
+
+    private void performSubmit(Action action) {
+        if (pausedTags.contains(action.tag)) {
+            pausedActions.put(action.targetUnique(), action);
             return;
         }
-        task.onPreExecute();
-        Call call = keyToCall.get(task.key);
+        Call call = keyToCall.get(action.key);
         if (call != null) {
-            call.attach(task);
+            call.attach(action);
         } else {
-            call = new Call(vanGogh, task);
-            keyToCall.put(call.key, call);
+            call = new Call(vanGogh, action);
+            keyToCall.put(action.key, call);
             call.future = executor.submit(call);
         }
     }
 
-    void dispatchCancel(Task task) {
-        final String key = task.key;
+    private void performCancel(Action action) {
+        final String key = action.key;
         Call call = keyToCall.get(key);
         if (call != null) {
-            call.detach(task);
+            call.detach(action);
             if (call.tryCancel()) {
                 keyToCall.remove(key);
             }
         }
-        if (pausedTags.contains(task.tag)) {
-            pausedTasks.remove(task.target.uniqueCode());
+        if (pausedTags.contains(action.tag)) {
+            pausedActions.remove(action.targetUnique());
         }
     }
 
-    void dispatchSuccess(Call call) {
-        keyToCall.remove(call.key);
+    private void performComplete(Call call) {
+        keyToCall.remove(call.key());
         batch(call);
     }
 
-    void dispatchRetry(Call call) {
+    private void performError(Call call) {
+        keyToCall.remove(call.key());
+        batch(call);
+    }
+
+    private void performRetry(Call call) {
         if (call.isCanceled()) {
             return;
         }
         call.future = executor.submit(call);
-    }
-
-    void dispatchFailed(Call call) {
-        keyToCall.remove(call.key);
-        batch(call);
-    }
-
-    void dispatchPauseTag(Object tag) {
-        if (!pausedTags.add(tag)) {
-            return;
-        }
-        Iterator<Call> iterator = keyToCall.values().iterator();
-        while (iterator.hasNext()) {
-            Call call = iterator.next();
-            if (call.tasks.isEmpty()) {
-                continue;
-            }
-            for (int i = 0, size = call.tasks.size(); i < size; ++i) {
-                Task task = call.tasks.get(i);
-                if (!tag.equals(task.tag)) {
-                    continue;
-                }
-                call.detach(task);
-                pausedTasks.put(task.target.uniqueCode(), task);
-            }
-            if (call.tryCancel()) {
-                iterator.remove();
-            }
-        }
-    }
-
-    void dispatchResumeTag(Object tag) {
-        if (!pausedTags.remove(tag)) {
-            return;
-        }
-        List<Task> resumed = null;
-        for (int i = 0; i < pausedTasks.size(); ++i) {
-            Task task = pausedTasks.valueAt(i);
-            if (tag.equals(task.tag)) {
-                if (resumed == null) {
-                    resumed = new ArrayList<>(8);
-                }
-                resumed.add(task);
-                pausedTasks.removeAt(i);
-            }
-        }
-        if (resumed != null) {
-            handler.sendMessage(handler.obtainMessage(VanGogh.TASK_BATCH_RESUME, resumed));
-        }
     }
 
     private void performPauseTag(Object tag) {
@@ -156,21 +156,47 @@ class Dispatcher {
         Iterator<Call> iterator = keyToCall.values().iterator();
         while (iterator.hasNext()) {
             Call call = iterator.next();
-            if (call.tasks.isEmpty()) {
+            if (call.actions.isEmpty()) {
                 continue;
             }
-            for (int i = 0, size = call.tasks.size(); i < size; ++i) {
-                Task task = call.tasks.get(i);
-                if (!tag.equals(task.tag)) {
+            for (int i = 0, size = call.actions.size(); i < size; ++i) {
+                Action action = call.actions.get(i);
+                if (!action.tag.equals(tag)) {
                     continue;
                 }
-                call.detach(task);
-                pausedTasks.put(task.target.uniqueCode(), task);
+                call.detach(action);
+                pausedActions.put(action.targetUnique(), action);
             }
             if (call.tryCancel()) {
                 iterator.remove();
             }
         }
+    }
+
+    private void performResumeTag(Object tag) {
+        if (!pausedTags.remove(tag)) {
+            return;
+        }
+        List<Action> resumed = null;
+        for (Iterator<Action> i = pausedActions.values().iterator(); i.hasNext(); ) {
+            Action action = i.next();
+            if (action.tag.equals(tag)) {
+                if (resumed == null) {
+                    resumed = new ArrayList<>();
+                }
+                resumed.add(action);
+                i.remove();
+            }
+        }
+        if (resumed != null) {
+            mainHandler.sendMessage(mainHandler.obtainMessage(VanGogh.ACTION_BATCH_RESUME, resumed));
+        }
+    }
+
+    private void performBatchComplete() {
+        List<Call> copy = new ArrayList<>(batch);
+        batch.clear();
+        mainHandler.sendMessage(mainHandler.obtainMessage(VanGogh.CALL_BATCH_COMPLETE, copy));
     }
 
     private void batch(Call call) {
@@ -180,139 +206,19 @@ class Dispatcher {
         if (call.bitmap != null) {
             call.bitmap.prepareToDraw();
         }
-
-    }
-
-    private void performResumeTag(Object tag) {
-    }
-
-    private void performBatchComplete() {
-
-
-    }
-
-    private void performError(Call call) {
-
-    }
-
-    private void performRetry(Call call) {
-
-    }
-
-    private void performComplete(Call call) {
-
-    }
-
-    private void performCancel(Task task) {
-
-    }
-
-    private void performSubmit(Task task) {
+        batch.add(call);
+        if (!handler.hasMessages(CALL_DELAY_NEXT_BATCH)) {
+            handler.sendEmptyMessageDelayed(CALL_DELAY_NEXT_BATCH, 200);
+        }
     }
 
 
-
-
-    void pause() {
-//        pause = true;
+    private static class DispatcherThread extends HandlerThread {
+        DispatcherThread() {
+            super("VanGoghDispatcher", Process.THREAD_PRIORITY_BACKGROUND);
+        }
     }
 
-    void resume() {
-//        pause = false;
-//        synchronized (waiting) {
-//            promoteTask();
-//        }
-    }
-
-    void clear() {
-//        Utils.checkMain();
-//        synchronized (waiting) {
-//            waiting.clear();
-//            tasks.clear();
-//        }
-    }
-
-//    void enqueue(Task task) {
-//        Utils.checkMain();
-//        if (!tasks.contains(task) && tasks.offer(task)) {
-//            task.onPreExecute();
-//            Call call = new Call(vanGogh, task);
-//            synchronized (waiting) {
-//                if (!waiting.contains(call) && waiting.offer(call)) {
-//                    promoteTask();
-//                }
-//            }
-//        }
-//    }
-
-//    private void promoteTask() {
-//        Call call;
-//        while (!pause && running.size() < vanGogh.maxRunning && (call = pollWaiting()) != null) {
-//            if (running.add(call)) {
-//                executor.submit(new AsyncCall(call));
-//            }
-//        }
-//        LogUtils.i("Dispatcher", "waiting tasks = " + tasks.size()
-//                + "\n waiting calls = " + waiting.size()
-//                + "\n running calls = " + running.size());
-//    }
-//
-//    private Call pollWaiting() {
-//        return vanGogh.mostRecentFirst ? waiting.pollLast() : waiting.pollFirst();
-//    }
-
-//    private void completeCall(final Call call, final Result result, final Exception cause) {
-//        if ((result != null) == (cause != null)) {
-//            throw new IllegalStateException("dispatcher reporting error.");
-//        }
-//        handler.post(new Runnable() {
-//            @Override
-//            public void run() {
-//                String stableKey = call.task().stableKey();
-//                Iterator<Task> iterator = tasks.descendingIterator();
-//                while (iterator.hasNext()) {
-//                    Task task = iterator.next();
-//                    if (stableKey.equals(task.stableKey())) {
-//                        task.onPostResult(result, cause);
-//                        iterator.remove();
-//                    }
-//                }
-//            }
-//        });
-//    }
-
-//    private class AsyncCall implements Runnable {
-//        private Call call;
-//
-//        private AsyncCall(Call call) {
-//            this.call = call;
-//        }
-//
-//        @Override
-//        public void run() {
-//            Result result = null;
-//            Exception cause = null;
-//            try {
-//                result = call.execute();
-//            } catch (IOException e) {
-//                LogUtils.e(e);
-//                cause = e;
-//            } catch (IndexOutOfBoundsException e) {
-//                LogUtils.e(e);
-//                cause = new UnsupportedOperationException("unsupported uri: " + call.task().uri());
-//            } finally {
-//                synchronized (waiting) {
-//                    running.remove(call);
-//                    if (result != null || call.getAndIncrement() >= vanGogh.maxTry) {
-//                        completeCall(call, result, cause);
-//                    } else if (!waiting.contains(call)) {
-//                        waiting.offer(call);
-//                    }
-//                    promoteTask();
-//                }
-//            }
-//        }
-//    }
 
     private static class DispatcherHandler extends Handler {
         private final Dispatcher dispatcher;
@@ -326,13 +232,13 @@ class Dispatcher {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case ACTION_SUBMIT: {
-                    Task task = (Task) msg.obj;
-                    dispatcher.performSubmit(task);
+                    Action action = (Action) msg.obj;
+                    dispatcher.performSubmit(action);
                     break;
                 }
                 case ACTION_CANCEL: {
-                    Task task= (Task) msg.obj;
-                    dispatcher.performCancel(task);
+                    Action action = (Action) msg.obj;
+                    dispatcher.performCancel(action);
                     break;
                 }
                 case CALL_COMPLETE: {
@@ -340,14 +246,14 @@ class Dispatcher {
                     dispatcher.performComplete(call);
                     break;
                 }
-                case CALL_RETRY: {
-                    Call call = (Call) msg.obj;
-                    dispatcher.performRetry(call);
-                    break;
-                }
                 case CALL_FAILED: {
                     Call call = (Call) msg.obj;
                     dispatcher.performError(call);
+                    break;
+                }
+                case CALL_RETRY: {
+                    Call call = (Call) msg.obj;
+                    dispatcher.performRetry(call);
                     break;
                 }
                 case CALL_DELAY_NEXT_BATCH: {
@@ -367,6 +273,4 @@ class Dispatcher {
             }
         }
     }
-
-
 }
