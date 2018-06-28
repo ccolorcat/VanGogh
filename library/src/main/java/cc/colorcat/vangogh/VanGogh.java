@@ -59,18 +59,16 @@ public class VanGogh {
 
     private final Map<Object, Action> targetUniqueToAction;
     final Dispatcher dispatcher;
+    final List<Interceptor> interceptors;
 
     final Context context;
+    private final Cache<Bitmap> memoryCache;
 
-    final List<Interceptor> interceptors;
     final Downloader downloader;
     final int connectTimeOut;
     final int readTimeOut;
     final int fromPolicy;
     final int maxTry;
-
-    final Cache<Bitmap> memoryCache;
-    final DiskCache diskCache;
 
     final List<Transformation> transformations;
     final Drawable placeholder;
@@ -81,14 +79,12 @@ public class VanGogh {
 
     private VanGogh(Builder builder, Cache<Bitmap> memoryCache, DiskCache diskCache) {
         this.context = builder.context;
-        this.interceptors = Utils.immutableList(builder.interceptors);
+        this.memoryCache = memoryCache;
         this.downloader = builder.downloader;
         this.connectTimeOut = builder.connectTimeOut;
         this.readTimeOut = builder.readTimeOut;
         this.fromPolicy = builder.fromPolicy;
         this.maxTry = builder.maxTry;
-        this.memoryCache = memoryCache;
-        this.diskCache = diskCache;
         this.transformations = Utils.immutableList(builder.transformations);
         this.placeholder = builder.placeholder;
         this.error = builder.error;
@@ -97,6 +93,18 @@ public class VanGogh {
         this.fade = builder.fade;
         this.targetUniqueToAction = new WeakHashMap<>();
         this.dispatcher = new Dispatcher(this, builder.executor, new MainHandler(this));
+        List<Interceptor> allInterceptors = new ArrayList<>(builder.interceptors.size() + 7);
+        allInterceptors.addAll(builder.interceptors);
+        allInterceptors.add(new KeyMemoryCacheInterceptor(this.memoryCache));
+        allInterceptors.add(new TransformInterceptor());
+        allInterceptors.add(new StableKeyMemoryCacheInterceptor(this.memoryCache));
+        allInterceptors.add(new StreamInterceptor());
+        allInterceptors.add(new ContentInterceptor(this.context));
+        if (diskCache != null) {
+            allInterceptors.add(new DiskCacheInterceptor(diskCache));
+        }
+        allInterceptors.add(new NetworkInterceptor());
+        this.interceptors = Utils.immutableList(allInterceptors);
     }
 
     @Nullable
@@ -331,7 +339,6 @@ public class VanGogh {
         private int fromPolicy;
         private int maxTry;
 
-
         private long memoryCacheSize;
         private File cacheDirectory;
         private long diskCacheSize;
@@ -342,7 +349,6 @@ public class VanGogh {
         private Task.Options options;
         private boolean indicatorEnabled;
         private boolean fade;
-
 
         public Builder(Context ctx) {
             context = ctx.getApplicationContext();

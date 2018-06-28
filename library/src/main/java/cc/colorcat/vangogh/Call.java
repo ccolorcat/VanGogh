@@ -99,19 +99,7 @@ class Call implements Runnable {
 
     private Result getResultWithInterceptor() throws IOException {
         --count;
-        List<Interceptor> users = vanGogh.interceptors;
-        List<Interceptor> interceptors = new ArrayList<>(users.size() + 7);
-        interceptors.addAll(users);
-        interceptors.add(new KeyMemoryCacheInterceptor(vanGogh.memoryCache));
-        interceptors.add(new TransformInterceptor());
-        interceptors.add(new StableKeyMemoryCacheInterceptor(vanGogh.memoryCache));
-        interceptors.add(new StreamInterceptor());
-        interceptors.add(new ContentInterceptor(vanGogh.context));
-        if (vanGogh.diskCache != null) {
-            interceptors.add(new DiskCacheInterceptor(vanGogh.diskCache));
-        }
-        interceptors.add(new NetworkInterceptor());
-        Interceptor.Chain chain = new RealInterceptorChain(interceptors, 0, task, vanGogh.downloader.clone());
+        Interceptor.Chain chain = new RealInterceptorChain(vanGogh.interceptors, 0, task, vanGogh.downloader.clone());
         return chain.proceed(task);
     }
 }
