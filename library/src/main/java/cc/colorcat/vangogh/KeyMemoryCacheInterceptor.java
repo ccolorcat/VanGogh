@@ -39,7 +39,7 @@ class KeyMemoryCacheInterceptor implements Interceptor {
         if (fromPolicy != 0) {
             Bitmap bitmap = memoryCache.get(task.key());
             if (bitmap != null) {
-                return new Result(bitmap, From.MEMORY);
+                return Result.create(bitmap, From.MEMORY);
             }
         }
         Result result = chain.proceed(task);

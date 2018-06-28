@@ -31,32 +31,33 @@ public final class Result {
     private final long contentLength;
     private final From from;
 
-    public Result(Bitmap bitmap, From from) {
+    public static Result create(Bitmap bitmap, From from) {
         if (bitmap == null) {
             throw new NullPointerException("bitmap == null");
         }
         if (from == null) {
-            throw new NullPointerException("reqFrom == null");
+            throw new NullPointerException("from == null");
         }
-        this.bitmap = bitmap;
-        this.stream = null;
-        this.contentLength = bitmap.getByteCount();
-        this.from = from;
+        return new Result(bitmap, null, -1L, from);
     }
 
-    public Result(InputStream is, From from) {
-        this(is, -1L, from);
+    public static Result create(InputStream stream, From from) {
+        return create(stream, -1L, from);
     }
 
-    public Result(InputStream is, long contentLength, From from) {
-        if (is == null) {
-            throw new NullPointerException("is == null");
+    public static Result create(InputStream stream, long contentLength, From from) {
+        if (stream == null) {
+            throw new NullPointerException("stream == null");
         }
         if (from == null) {
-            throw new NullPointerException("reqFrom == null");
+            throw new NullPointerException("from == null");
         }
-        this.bitmap = null;
-        this.stream = is;
+        return new Result(null, stream, contentLength, from);
+    }
+
+    private Result(Bitmap bitmap, InputStream stream, long contentLength, From from) {
+        this.bitmap = bitmap;
+        this.stream = stream;
         this.contentLength = contentLength;
         this.from = from;
     }

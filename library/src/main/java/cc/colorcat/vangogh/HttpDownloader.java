@@ -44,9 +44,9 @@ class HttpDownloader implements Downloader {
             if (is != null) {
                 long contentLength = conn.getContentLength();
                 if (contentLength > 0) {
-                    return new Result(is, contentLength, From.NETWORK);
+                    return Result.create(is, contentLength, From.NETWORK);
                 } else {
-                    return new Result(is, From.NETWORK);
+                    return Result.create(is, From.NETWORK);
                 }
             }
         }
