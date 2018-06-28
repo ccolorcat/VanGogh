@@ -22,6 +22,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
+import android.util.TypedValue;
 import android.widget.ImageView;
 
 import java.util.ArrayList;
@@ -163,6 +164,11 @@ public final class Creator {
         return this;
     }
 
+    public Creator maxSizeWithDP(int maxWidth, int maxHeight) {
+        this.options.maxSize(toPx(maxWidth), toPx(maxHeight));
+        return this;
+    }
+
     public Creator maxSize(int maxWidth, int maxHeight) {
         this.options.maxSize(maxWidth, maxHeight);
         return this;
@@ -170,6 +176,11 @@ public final class Creator {
 
     public Creator clearMaxSize() {
         this.options.clearMaxSize();
+        return this;
+    }
+
+    public Creator resizeWithDP(int width, int height) {
+        this.options.resize(toPx(width), toPx(height));
         return this;
     }
 
@@ -271,5 +282,13 @@ public final class Creator {
         } else {
             vanGogh.submit(action);
         }
+    }
+
+    private int toPx(int dp) {
+        return (int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                dp,
+                vanGogh.context.getResources().getDisplayMetrics()
+        );
     }
 }
