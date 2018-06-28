@@ -41,7 +41,7 @@ public final class Task {
     final boolean fade;
     final boolean indicatorEnabled;
     final List<Transformation> transformations;
-    final Drawable placeHolder;
+    final Drawable placeholder;
     final Drawable error;
     final Options options;
     final Callback callback;
@@ -62,7 +62,7 @@ public final class Task {
         fade = creator.fade;
         indicatorEnabled = creator.indicatorEnabled;
         transformations = Utils.immutableList(creator.transformations);
-        placeHolder = creator.placeholder;
+        placeholder = creator.placeholder;
         error = creator.error;
         options = creator.options;
         callback = creator.callback;
@@ -118,7 +118,7 @@ public final class Task {
     }
 
     void onPreExecute() {
-        target.onPrepare(placeHolder);
+        target.onPrepare(placeholder);
     }
 
     void onPostResult(Result result, Throwable cause) {
