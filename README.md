@@ -38,11 +38,16 @@ VanGogh.with(getContext()) //如已设置单例或调用过 VanGogh.with(getCont
 
 ```groovy
 	dependencies {
-	        implementation 'com.github.ccolorcat:VanGogh:v2.0.0'
+	        implementation 'com.github.ccolorcat:VanGogh:v2.1.0'
 	}
 ```
 
 ## 4. 版本历史
+
+v2.1.0
+
+> 1. 细节改善。
+> 2. 添加了两个方法，对图片的大小进行限制可直接使用 DP 作单位。
 
 v2.0.0
 
