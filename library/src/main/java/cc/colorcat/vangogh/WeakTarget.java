@@ -16,27 +16,23 @@
 
 package cc.colorcat.vangogh;
 
-import android.graphics.Bitmap;
-import android.support.annotation.NonNull;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
 
 /**
  * Author: cxx
- * Date: 2017-12-14
+ * Date: 2018-06-28
  * GitHub: https://github.com/ccolorcat
  */
-class EmptyCallback implements Callback {
-    final static Callback INSTANCE = new EmptyCallback();
+public abstract class WeakTarget<T> implements Target {
+    protected final Reference<T> reference;
 
-    private EmptyCallback() {
+    public WeakTarget(T t) {
+        reference = new WeakReference<>(t);
     }
 
     @Override
-    public void onSuccess(@NonNull Bitmap bitmap) {
-
-    }
-
-    @Override
-    public void onError(@NonNull Throwable cause) {
-
+    public Object unique() {
+        return reference.get();
     }
 }

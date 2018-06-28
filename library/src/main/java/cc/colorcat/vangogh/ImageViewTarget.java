@@ -16,27 +16,21 @@
 
 package cc.colorcat.vangogh;
 
-import android.graphics.Bitmap;
-import android.support.annotation.NonNull;
+import android.graphics.drawable.Drawable;
+import android.widget.ImageView;
 
 /**
  * Author: cxx
- * Date: 2017-12-14
+ * Date: 2018-06-28
  * GitHub: https://github.com/ccolorcat
  */
-class EmptyCallback implements Callback {
-    final static Callback INSTANCE = new EmptyCallback();
-
-    private EmptyCallback() {
+class ImageViewTarget extends ViewTarget<ImageView> {
+    ImageViewTarget(ImageView view) {
+        super(view);
     }
 
     @Override
-    public void onSuccess(@NonNull Bitmap bitmap) {
-
-    }
-
-    @Override
-    public void onError(@NonNull Throwable cause) {
-
+    protected void setDrawable(ImageView view, Drawable drawable) {
+        view.setImageDrawable(drawable);
     }
 }

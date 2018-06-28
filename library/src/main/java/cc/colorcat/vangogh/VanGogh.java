@@ -28,6 +28,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.support.annotation.DrawableRes;
+import android.support.annotation.MainThread;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 
@@ -55,53 +56,51 @@ public class VanGogh {
     @SuppressLint("StaticFieldLeak")
     private static volatile VanGogh singleton;
 
-    private final Map<Object, Action> targetToAction;
+    private final Map<Object, Action> targetUniqueToAction;
     final Dispatcher dispatcher;
-    final int maxTry;
-    final int connectTimeOut;
-    final int readTimeOut;
+
+    final Context context;
 
     final List<Interceptor> interceptors;
     final Downloader downloader;
-    final int defaultFromPolicy;
+    final int connectTimeOut;
+    final int readTimeOut;
+    final int fromPolicy;
+    final int maxTry;
 
     final Cache<Bitmap> memoryCache;
     final DiskCache diskCache;
 
-    final Task.Options defaultOptions;
-    final Context context;
-    final boolean indicatorEnabled;
-
     final List<Transformation> transformations;
-
-    final Drawable defaultLoading;
-    final Drawable defaultError;
-
+    final Drawable placeholder;
+    final Drawable error;
+    final Task.Options options;
+    final boolean indicatorEnabled;
     final boolean fade;
 
 
     private VanGogh(Builder builder, Cache<Bitmap> memoryCache, DiskCache diskCache) {
-        maxTry = builder.maxTry;
-        connectTimeOut = builder.connectTimeOut;
-        readTimeOut = builder.readTimeOut;
-        interceptors = Utils.immutableList(builder.interceptors);
-        downloader = builder.downloader;
-        defaultFromPolicy = builder.defaultFromPolicy;
-        defaultOptions = builder.defaultOptions;
-        context = builder.context;
-        indicatorEnabled = builder.indicatorEnabled;
-        transformations = Utils.immutableList(builder.transformations);
-        defaultLoading = builder.defaultLoading;
-        defaultError = builder.defaultError;
-        fade = builder.fade;
+        this.context = builder.context;
+        this.interceptors = Utils.immutableList(builder.interceptors);
+        this.downloader = builder.downloader;
+        this.connectTimeOut = builder.connectTimeOut;
+        this.readTimeOut = builder.readTimeOut;
+        this.fromPolicy = builder.fromPolicy;
+        this.maxTry = builder.maxTry;
         this.memoryCache = memoryCache;
         this.diskCache = diskCache;
-        this.targetToAction = new WeakHashMap<>();
+        this.transformations = Utils.immutableList(builder.transformations);
+        this.placeholder = builder.placeholder;
+        this.error = builder.error;
+        this.options = builder.options;
+        this.indicatorEnabled = builder.indicatorEnabled;
+        this.fade = builder.fade;
+        this.targetUniqueToAction = new WeakHashMap<>();
         this.dispatcher = new Dispatcher(this, builder.executor, new MainHandler(this));
     }
 
-    void cancelExistingAction(Object target) {
-        Action action = targetToAction.remove(target);
+    void cancelExistingAction(Object targetUnique) {
+        Action action = targetUniqueToAction.remove(targetUnique);
         if (action != null) {
             action.cancel();
             dispatcher.dispatchCancel(action);
@@ -109,10 +108,10 @@ public class VanGogh {
     }
 
     void enqueueAndSubmit(Action action) {
-        Object target = action.target();
-        if (target != null && targetToAction.get(target) != action) {
-            cancelExistingAction(target);
-            targetToAction.put(target, action);
+        Object targetUnique = action.targetUnique();
+        if (targetUnique != null && targetUniqueToAction.get(targetUnique) != action) {
+            cancelExistingAction(targetUnique);
+            targetUniqueToAction.put(targetUnique, action);
         }
         submit(action);
     }
@@ -133,6 +132,7 @@ public class VanGogh {
         }
     }
 
+    @MainThread
     void resumeAction(Action action) {
         Bitmap bitmap = null;
         if ((action.task.fromPolicy() & From.MEMORY.policy) != 0) {
@@ -149,11 +149,11 @@ public class VanGogh {
         if (action.isCanceled()) {
             return;
         }
-        targetToAction.remove(action.target());
+        targetUniqueToAction.remove(action.targetUnique());
         if (result != null) {
-            action.complete(result, from);
+            action.onSuccess(result, from);
         } else {
-            action.error(cause);
+            action.onFailed(cause);
         }
     }
 
@@ -315,47 +315,48 @@ public class VanGogh {
 
     public static class Builder {
         private ExecutorService executor;
-        private int maxTry;
-        private int connectTimeOut;
-        private int readTimeOut;
+
+        private Context context;
 
         private List<Interceptor> interceptors;
         private Downloader downloader;
-        private int defaultFromPolicy;
+        private int connectTimeOut;
+        private int readTimeOut;
+        private int fromPolicy;
+        private int maxTry;
+
 
         private long memoryCacheSize;
         private File cacheDirectory;
         private long diskCacheSize;
 
-        private Task.Options defaultOptions;
-        private Context context;
-        private boolean indicatorEnabled;
-
         private List<Transformation> transformations;
+        private Drawable placeholder;
+        private Drawable error;
+        private Task.Options options;
+        private boolean indicatorEnabled;
         private boolean fade;
 
-        private Drawable defaultLoading;
-        private Drawable defaultError;
 
         public Builder(Context ctx) {
-            maxTry = 1;
-            connectTimeOut = 5000;
-            readTimeOut = 5000;
+            context = ctx.getApplicationContext();
             interceptors = new ArrayList<>(4);
             downloader = new HttpDownloader();
-            defaultFromPolicy = From.ANY.policy;
+            connectTimeOut = 5000;
+            readTimeOut = 5000;
+            fromPolicy = From.ANY.policy;
+            maxTry = 1;
             memoryCacheSize = Utils.calculateMemoryCacheSize(ctx);
             cacheDirectory = Utils.getCacheDirectory(ctx);
             diskCacheSize = (long) Math.min(50 * 1024 * 1024, cacheDirectory.getUsableSpace() * 0.1);
-            defaultOptions = new Task.Options();
-            context = ctx.getApplicationContext();
-            indicatorEnabled = false;
             transformations = new ArrayList<>(4);
+            options = new Task.Options();
+            indicatorEnabled = false;
             fade = true;
         }
 
         /**
-         * @param executor The executor service for loading images in the background.
+         * @param executor The executor service for placeholder images in the background.
          */
         public Builder executor(ExecutorService executor) {
             if (executor == null) {
@@ -365,15 +366,26 @@ public class VanGogh {
             return this;
         }
 
-        /**
-         * @param maxTry The maximum number of retries.
-         * @throws IllegalArgumentException if the maxTry less than 0.
-         */
-        public Builder maxTry(int maxTry) {
-            if (maxTry < 0) {
-                throw new IllegalArgumentException("maxTry < 0");
+        public Builder addInterceptor(Interceptor interceptor) {
+            if (interceptor == null) {
+                throw new NullPointerException("interceptor == null");
             }
-            this.maxTry = maxTry;
+            if (!this.interceptors.contains(interceptor)) {
+                this.interceptors.add(interceptor);
+            }
+            return this;
+        }
+
+        /**
+         * @param downloader The {@link Downloader} will be used for download images.
+         * @throws NullPointerException if downloader is null
+         * @see HttpDownloader
+         */
+        public Builder downloader(Downloader downloader) {
+            if (downloader == null) {
+                throw new NullPointerException("downloader == null");
+            }
+            this.downloader = downloader;
             return this;
         }
 
@@ -393,29 +405,6 @@ public class VanGogh {
             return this;
         }
 
-        public Builder addInterceptor(Interceptor interceptor) {
-            if (interceptor == null) {
-                throw new NullPointerException("interceptor == null");
-            }
-            if (!interceptors.contains(interceptor)) {
-                interceptors.add(interceptor);
-            }
-            return this;
-        }
-
-        /**
-         * @param downloader The {@link Downloader} will be used for download images.
-         * @throws NullPointerException if downloader is null
-         * @see HttpDownloader
-         */
-        public Builder downloader(Downloader downloader) {
-            if (downloader == null) {
-                throw new NullPointerException("downloader == null");
-            }
-            this.downloader = downloader;
-            return this;
-        }
-
         /**
          * The default policy of image source.
          * Any source, <code>From.ANY.policy</code>
@@ -425,9 +414,21 @@ public class VanGogh {
          *
          * @see From
          */
-        public Builder defaultFromPolicy(int fromPolicy) {
+        public Builder fromPolicy(int fromPolicy) {
             From.checkFromPolicy(fromPolicy);
-            this.defaultFromPolicy = fromPolicy;
+            this.fromPolicy = fromPolicy;
+            return this;
+        }
+
+        /**
+         * @param maxTry The maximum number of retries.
+         * @throws IllegalArgumentException if the maxTry <= 0.
+         */
+        public Builder maxTry(int maxTry) {
+            if (maxTry <= 0) {
+                throw new IllegalArgumentException("maxTry <= 0");
+            }
+            this.maxTry = maxTry;
             return this;
         }
 
@@ -455,26 +456,66 @@ public class VanGogh {
             return this;
         }
 
-        public Builder defaultOptions(Task.Options options) {
-            if (options == null) {
-                throw new NullPointerException("options == null");
-            }
-            defaultOptions = options;
-            return this;
-        }
-
-        public Builder enableIndicator(boolean enabled) {
-            this.indicatorEnabled = enabled;
-            return this;
-        }
-
         public Builder addTransformation(Transformation transformation) {
             if (transformation == null) {
                 throw new NullPointerException("transformation == null");
             }
-            if (!transformations.contains(transformation)) {
-                transformations.add(transformation);
+            if (!this.transformations.contains(transformation)) {
+                this.transformations.add(transformation);
             }
+            return this;
+        }
+
+        /**
+         * The default drawable to be used while the image is being loaded.
+         */
+        public Builder placeholder(Drawable placeholder) {
+            this.placeholder = placeholder;
+            return this;
+        }
+
+        /**
+         * The default drawable to be used while the image is being loaded.
+         */
+        public Builder placeholder(@DrawableRes int resId) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                placeholder = context.getDrawable(resId);
+            } else {
+                placeholder = context.getResources().getDrawable(resId);
+            }
+            return this;
+        }
+
+        /**
+         * The default drawable to be used if the request image could not be loaded.
+         */
+        public Builder error(Drawable error) {
+            this.error = error;
+            return this;
+        }
+
+        /**
+         * The default drawable to be used if the request image could not be loaded.
+         */
+        public Builder error(@DrawableRes int resId) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                error = context.getDrawable(resId);
+            } else {
+                error = context.getResources().getDrawable(resId);
+            }
+            return this;
+        }
+
+        public Builder options(Task.Options options) {
+            if (options == null) {
+                throw new NullPointerException("options == null");
+            }
+            this.options = options;
+            return this;
+        }
+
+        public Builder indicator(boolean enabled) {
+            this.indicatorEnabled = enabled;
             return this;
         }
 
@@ -483,47 +524,7 @@ public class VanGogh {
             return this;
         }
 
-        /**
-         * The default drawable to be used while the image is being loaded.
-         */
-        public Builder defaultLoading(Drawable loading) {
-            defaultLoading = loading;
-            return this;
-        }
-
-        /**
-         * The default drawable to be used while the image is being loaded.
-         */
-        public Builder defaultLoading(@DrawableRes int resId) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                defaultLoading = context.getDrawable(resId);
-            } else {
-                defaultLoading = context.getResources().getDrawable(resId);
-            }
-            return this;
-        }
-
-        /**
-         * The default drawable to be used if the request image could not be loaded.
-         */
-        public Builder defaultError(Drawable error) {
-            defaultError = error;
-            return this;
-        }
-
-        /**
-         * The default drawable to be used if the request image could not be loaded.
-         */
-        public Builder defaultError(@DrawableRes int resId) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                defaultError = context.getDrawable(resId);
-            } else {
-                defaultError = context.getResources().getDrawable(resId);
-            }
-            return this;
-        }
-
-        public Builder enableLog(boolean enabled) {
+        public Builder log(boolean enabled) {
             LogUtils.init(enabled);
             return this;
         }

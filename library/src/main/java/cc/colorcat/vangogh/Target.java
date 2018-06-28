@@ -17,7 +17,7 @@
 package cc.colorcat.vangogh;
 
 import android.graphics.drawable.Drawable;
-import android.support.annotation.Nullable;
+import android.support.annotation.NonNull;
 
 /**
  * Author: cxx
@@ -26,9 +26,11 @@ import android.support.annotation.Nullable;
  */
 public interface Target {
 
-    void onPrepare(@Nullable Drawable placeHolder);
+    void onPrepare(Drawable placeholder);
 
-    void onLoaded(Drawable drawable, From from);
+    void onLoaded(@NonNull Drawable loaded, @NonNull From from);
 
-    void onFailed(@Nullable Drawable error, Throwable cause);
+    void onFailed(Drawable error, @NonNull Throwable cause);
+
+    Object unique();
 }

@@ -50,7 +50,7 @@ class HttpDownloader implements Downloader {
                 }
             }
         }
-        throw new IOException("network error, code = " + code + ", msg = " + conn.getResponseMessage());
+        throw new IOException("network onFailed, code = " + code + ", msg = " + conn.getResponseMessage());
     }
 
     @Override

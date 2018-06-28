@@ -21,6 +21,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
+import android.support.annotation.MainThread;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -51,10 +52,10 @@ class Dispatcher {
     private final DispatcherThread dispatcherThread;
     private final DispatcherHandler handler;
     private final ExecutorService executor;
-    private final Map<String, Call> callMap = new LinkedHashMap<>();
+    private final Map<String, Call> keyToCall = new LinkedHashMap<>();
     private final List<Call> batch = new ArrayList<>(4);
     private final Set<Object> pausedTags = new HashSet<>();
-    private final Map<Object, Action> pausedActions = new WeakHashMap<>(); // target to action
+    private final Map<Object, Action> pausedActions = new WeakHashMap<>(); // targetUnique to action
 
     private final VanGogh vanGogh;
 
@@ -67,8 +68,9 @@ class Dispatcher {
         this.handler = new DispatcherHandler(dispatcherThread.getLooper(), this);
     }
 
+    @MainThread
     void dispatchSubmit(Action action) {
-        action.prepare();
+        action.onPreExecute();
         handler.sendMessage(handler.obtainMessage(ACTION_SUBMIT, action));
     }
 
@@ -98,40 +100,40 @@ class Dispatcher {
 
     private void performSubmit(Action action) {
         if (pausedTags.contains(action.tag)) {
-            pausedActions.put(action.target(), action);
+            pausedActions.put(action.targetUnique(), action);
             return;
         }
-        Call call = callMap.get(action.key);
+        Call call = keyToCall.get(action.key);
         if (call != null) {
             call.attach(action);
         } else {
             call = new Call(vanGogh, action);
-            callMap.put(action.key, call);
+            keyToCall.put(action.key, call);
             call.future = executor.submit(call);
         }
     }
 
     private void performCancel(Action action) {
         final String key = action.key;
-        Call call = callMap.get(key);
+        Call call = keyToCall.get(key);
         if (call != null) {
             call.detach(action);
             if (call.tryCancel()) {
-                callMap.remove(key);
+                keyToCall.remove(key);
             }
         }
         if (pausedTags.contains(action.tag)) {
-            pausedActions.remove(action.target());
+            pausedActions.remove(action.targetUnique());
         }
     }
 
     private void performComplete(Call call) {
-        callMap.remove(call.key());
+        keyToCall.remove(call.key());
         batch(call);
     }
 
     private void performError(Call call) {
-        callMap.remove(call.key());
+        keyToCall.remove(call.key());
         batch(call);
     }
 
@@ -146,7 +148,7 @@ class Dispatcher {
         if (!pausedTags.add(tag)) {
             return;
         }
-        Iterator<Call> iterator = callMap.values().iterator();
+        Iterator<Call> iterator = keyToCall.values().iterator();
         while (iterator.hasNext()) {
             Call call = iterator.next();
             if (call.actions.isEmpty()) {
@@ -158,7 +160,7 @@ class Dispatcher {
                     continue;
                 }
                 call.detach(action);
-                pausedActions.put(action.target(), action);
+                pausedActions.put(action.targetUnique(), action);
             }
             if (call.tryCancel()) {
                 iterator.remove();
@@ -208,7 +210,7 @@ class Dispatcher {
 
     private static class DispatcherThread extends HandlerThread {
         DispatcherThread() {
-            super("Dispatcher", Process.THREAD_PRIORITY_BACKGROUND);
+            super("VanGoghDispatcher", Process.THREAD_PRIORITY_BACKGROUND);
         }
     }
 
@@ -239,14 +241,14 @@ class Dispatcher {
                     dispatcher.performComplete(call);
                     break;
                 }
-                case CALL_RETRY: {
-                    Call call = (Call) msg.obj;
-                    dispatcher.performRetry(call);
-                    break;
-                }
                 case CALL_FAILED: {
                     Call call = (Call) msg.obj;
                     dispatcher.performError(call);
+                    break;
+                }
+                case CALL_RETRY: {
+                    Call call = (Call) msg.obj;
+                    dispatcher.performRetry(call);
                     break;
                 }
                 case CALL_DELAY_NEXT_BATCH: {

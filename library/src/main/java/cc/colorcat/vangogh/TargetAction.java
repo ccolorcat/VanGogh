@@ -24,37 +24,37 @@ import android.graphics.Bitmap;
  * Date: 2018-06-14
  * GitHub: https://github.com/ccolorcat
  */
-class TargetAction extends Action<Target> {
-    private final Context context;
-
-    TargetAction(Creator creator, Target target, Context context, Callback callback) {
-        super(creator, target, callback);
-        this.context = context;
-    }
-
-    @Override
-    void prepare() {
-        Target target = target();
-        if (target != null) {
-            target.onPrepare(loading);
-        }
-    }
-
-    @Override
-    void complete(Bitmap result, From from) {
-        Target target = target();
-        if (target != null) {
-            target.onLoaded(new VanGoghDrawable(context, result, from, fade, indicatorEnabled), from);
-            callback.onSuccess(result);
-        }
-    }
-
-    @Override
-    void error(Throwable cause) {
-        Target target = target();
-        if (target != null) {
-            target.onFailed(error, cause);
-            callback.onError(cause);
-        }
-    }
-}
+//class TargetAction extends Action<Target> {
+//    private final Context context;
+//
+//    TargetAction(Creator creator, Target target, Context context, Callback callback) {
+//        super(creator, target, callback);
+//        this.context = context;
+//    }
+//
+//    @Override
+//    void onPreExecute() {
+//        Target target = targetUnique();
+//        if (target != null) {
+//            target.onPrepare(placeholder);
+//        }
+//    }
+//
+//    @Override
+//    void onSuccess(Bitmap result, From from) {
+//        Target target = targetUnique();
+//        if (target != null) {
+//            target.onLoaded(new VanGoghDrawable(context, result, from, fade, indicatorEnabled), from);
+//            callback.onSuccess(result);
+//        }
+//    }
+//
+//    @Override
+//    void onFailed(Throwable cause) {
+//        Target target = targetUnique();
+//        if (target != null) {
+//            target.onFailed(error, cause);
+//            callback.onError(cause);
+//        }
+//    }
+//}

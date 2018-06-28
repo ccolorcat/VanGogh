@@ -35,10 +35,10 @@ public class Client extends Application {
 
     private void initVanGogh() {
         VanGogh vanGogh = new VanGogh.Builder(this)
-                .defaultError(R.drawable.ic_error)
-                .defaultLoading(R.drawable.ic_loading)
-                .enableLog(BuildConfig.DEBUG)
-                .enableIndicator(BuildConfig.DEBUG)
+                .error(R.drawable.ic_error)
+                .placeholder(R.drawable.ic_loading)
+                .log(BuildConfig.DEBUG)
+                .indicator(BuildConfig.DEBUG)
                 .build();
         VanGogh.setSingleton(vanGogh);
     }

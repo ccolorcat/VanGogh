@@ -17,55 +17,39 @@
 package cc.colorcat.vangogh;
 
 import android.graphics.drawable.Drawable;
-import android.support.annotation.Nullable;
+import android.support.annotation.NonNull;
 import android.view.View;
-
-import java.lang.ref.Reference;
-import java.lang.ref.WeakReference;
 
 /**
  * Author: cxx
  * Date: 2017-12-07
  * GitHub: https://github.com/ccolorcat
  */
-public abstract class ViewTarget<V extends View> implements Target {
-    private static final int TAG_ID = R.string.app_name;
-
-    private final Reference<? extends V> ref;
-    private final Object tag;
-
-    public ViewTarget(V view, Object tag) {
-        view.setTag(TAG_ID, tag);
-        this.ref = new WeakReference<>(view);
-        this.tag = tag;
+public abstract class ViewTarget<V extends View> extends WeakTarget<V> {
+    public ViewTarget(V v) {
+        super(v);
     }
 
     @Override
-    public void onPrepare(@Nullable Drawable placeHolder) {
-        setDrawableWithCheck(placeHolder);
+    public void onPrepare(Drawable placeholder) {
+        setDrawable(placeholder);
     }
 
     @Override
-    public void onLoaded(Drawable drawable, From from) {
-        setDrawableWithCheck(drawable);
+    public void onLoaded(@NonNull Drawable loaded, @NonNull From from) {
+        setDrawable(loaded);
     }
 
     @Override
-    public void onFailed(@Nullable Drawable error, Throwable cause) {
-        setDrawableWithCheck(error);
-        LogUtils.e(cause);
+    public void onFailed(Drawable error, @NonNull Throwable cause) {
+        setDrawable(error);
     }
 
-    private void setDrawableWithCheck(Drawable drawable) {
-        V view = ref.get();
-        if (view != null && checkTag(view)) {
+    private void setDrawable(Drawable drawable) {
+        V view = reference.get();
+        if (view != null) {
             setDrawable(view, drawable);
         }
-    }
-
-    private boolean checkTag(V view) {
-        Object obj = view.getTag(TAG_ID);
-        return tag == obj || (tag != null && tag.equals(obj));
     }
 
     protected abstract void setDrawable(V view, Drawable drawable);

@@ -146,7 +146,7 @@ public class VanGoghActivity extends AppCompatActivity implements LoaderManager.
             ImageView icon = helper.get(R.id.iv_icon);
             Log.i(TAG, String.format("icon, size(%d, %d), measuredSize(%d, %d)", icon.getWidth(), icon.getHeight(), icon.getMeasuredWidth(), icon.getMeasuredHeight()));
             VanGogh.with(icon.getContext())
-                    .load(data.getPicBigUrl())
+                    .load(data.getPicSmallUrl())
                     .tag(TAG)
                     .addTransformation(mSquare)
                     .addTransformation((helper.getPosition() & 1) == 0 ? mTrBl : mTlBr)

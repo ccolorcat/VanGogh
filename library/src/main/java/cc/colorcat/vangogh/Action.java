@@ -16,46 +16,48 @@
 
 package cc.colorcat.vangogh;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-
-import java.lang.ref.WeakReference;
 
 /**
  * Author: cxx
  * Date: 2018-06-11
  * GitHub: https://github.com/ccolorcat
  */
-abstract class Action<T> {
-    private final WeakReference<T> target;
+class Action {
+    private final Context context;
+    private final Target target;
+    private final Drawable placeholder;
+    private final Drawable error;
+    private final boolean indicatorEnabled;
+    private final boolean fade;
+    private final Callback callback;
     final String key;
     final Task task;
-    final Drawable loading;
-    final Drawable error;
-    final boolean fade;
-    final boolean indicatorEnabled;
-    final Callback callback;
     final Object tag;
 
     private boolean canceled;
 
-    Action(Creator creator, T target, Callback callback) {
-        this.target = new WeakReference<>(target);
-        this.key = Utils.createKey(creator);
-        this.task = new Task(creator, key);
-        this.loading = creator.loading;
-        this.error = creator.error;
-        this.fade = creator.fade;
-        this.indicatorEnabled = creator.indicatorEnabled;
-        this.callback = callback != null ? callback : EmptyCallback.EMPTY;
-        this.tag = creator.tag;
-        this.canceled = false;
+    Action(Creator creator) {
+        context = creator.vanGogh.context;
+        target = creator.target;
+        placeholder = creator.placeholder;
+        error = creator.error;
+        indicatorEnabled = creator.indicatorEnabled;
+        fade = creator.fade;
+        callback = creator.callback;
+        key = creator.key;
+        task = new Task(creator);
+        tag = creator.tag;
+        canceled = false;
     }
 
     @Nullable
-    T target() {
-        return target.get();
+    Object targetUnique() {
+        return target.unique();
     }
 
     void cancel() {
@@ -66,9 +68,18 @@ abstract class Action<T> {
         return canceled;
     }
 
-    abstract void prepare();
+    void onPreExecute() {
+        target.onPrepare(placeholder);
+    }
 
-    abstract void complete(Bitmap result, From from);
+    void onSuccess(@NonNull Bitmap result, @NonNull From from) {
+        Drawable drawable = new VanGoghDrawable(context, result, from, fade, indicatorEnabled);
+        target.onLoaded(drawable, from);
+        callback.onSuccess(result);
+    }
 
-    abstract void error(Throwable cause);
+    void onFailed(@NonNull Throwable cause) {
+        target.onFailed(error, cause);
+        callback.onError(cause);
+    }
 }

@@ -23,24 +23,24 @@ import android.graphics.Bitmap;
  * Date: 2018-06-14
  * GitHub: https://github.com/ccolorcat
  */
-class FetchAction extends Action<Object> {
-
-    FetchAction(Creator creator, Callback callback) {
-        super(creator, new Object(), callback);
-    }
-
-    @Override
-    void prepare() {
-
-    }
-
-    @Override
-    void complete(Bitmap result, From from) {
-        callback.onSuccess(result);
-    }
-
-    @Override
-    void error(Throwable cause) {
-        callback.onError(cause);
-    }
-}
+//class FetchAction extends Action<Object> {
+//
+//    FetchAction(Creator creator, Callback callback) {
+//        super(creator, new Object(), callback);
+//    }
+//
+//    @Override
+//    void onPreExecute() {
+//
+//    }
+//
+//    @Override
+//    void onSuccess(Bitmap result, From from) {
+//        callback.onSuccess(result);
+//    }
+//
+//    @Override
+//    void onFailed(Throwable cause) {
+//        callback.onError(cause);
+//    }
+//}

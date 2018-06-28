@@ -33,34 +33,39 @@ import java.util.List;
  * GitHub: https://github.com/ccolorcat
  */
 public final class Creator {
-    private final VanGogh vanGogh;
+    final VanGogh vanGogh;
     final Uri uri;
     final String stableKey;
     int fromPolicy;
     int connectTimeOut;
     int readTimeOut;
-    Task.Options options;
-    List<Transformation> transformations;
-    Drawable loading;
-    Drawable error;
     boolean fade;
     boolean indicatorEnabled;
+    List<Transformation> transformations;
+    Drawable placeholder;
+    Drawable error;
+    Task.Options options;
     Object tag;
+    Callback callback;
+
+    Target target;
+    String key;
 
     Creator(VanGogh vanGogh, Uri uri, String stableKey) {
         this.vanGogh = vanGogh;
         this.uri = uri;
         this.stableKey = stableKey;
-        this.fromPolicy = vanGogh.defaultFromPolicy;
+        this.fromPolicy = vanGogh.fromPolicy;
         this.connectTimeOut = vanGogh.connectTimeOut;
         this.readTimeOut = vanGogh.readTimeOut;
-        this.options = vanGogh.defaultOptions.clone();
-        this.transformations = new ArrayList<>(vanGogh.transformations);
-        this.loading = vanGogh.defaultLoading;
-        this.error = vanGogh.defaultError;
         this.fade = vanGogh.fade;
         this.indicatorEnabled = vanGogh.indicatorEnabled;
+        this.transformations = new ArrayList<>(vanGogh.transformations);
+        this.placeholder = vanGogh.placeholder;
+        this.error = vanGogh.error;
+        this.options = vanGogh.options.clone();
         this.tag = stableKey;
+        this.callback = EmptyCallback.INSTANCE;
     }
 
     public Creator from(int fromPolicy) {
@@ -82,6 +87,74 @@ public final class Creator {
             throw new IllegalArgumentException("timeOut < 0");
         }
         this.readTimeOut = timeOut;
+        return this;
+    }
+
+    /**
+     * @param fade Enable or disable fade in of images loaded.
+     */
+    public Creator fade(boolean fade) {
+        this.fade = fade;
+        return this;
+    }
+
+    public Creator indicator(boolean enabled) {
+        this.indicatorEnabled = enabled;
+        return this;
+    }
+
+    public Creator addTransformation(Transformation transformation) {
+        if (transformation == null) {
+            throw new IllegalArgumentException("transformation == null");
+        }
+        if (!this.transformations.contains(transformation)) {
+            this.transformations.add(transformation);
+        }
+        return this;
+    }
+
+    public Creator clearTransformation() {
+        this.transformations.clear();
+        return this;
+    }
+
+    /**
+     * The drawable to be used while the image is being loaded.
+     */
+    public Creator placeholder(@DrawableRes int resId) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            this.placeholder = vanGogh.context.getDrawable(resId);
+        } else {
+            this.placeholder = vanGogh.context.getResources().getDrawable(resId);
+        }
+        return this;
+    }
+
+    /**
+     * The drawable to be used while the image is being loaded.
+     */
+    public Creator placeholder(Drawable placeholder) {
+        this.placeholder = placeholder;
+        return this;
+    }
+
+    /**
+     * The drawable to be used if the request image could not be loaded.
+     */
+    public Creator error(@DrawableRes int resId) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            this.error = vanGogh.context.getDrawable(resId);
+        } else {
+            this.error = vanGogh.context.getResources().getDrawable(resId);
+        }
+        return this;
+    }
+
+    /**
+     * The drawable to be used if the request image could not be loaded.
+     */
+    public Creator error(Drawable error) {
+        this.error = error;
         return this;
     }
 
@@ -135,74 +208,6 @@ public final class Creator {
         return this;
     }
 
-    public Creator addTransformation(Transformation transformation) {
-        if (transformation == null) {
-            throw new IllegalArgumentException("transformation == null");
-        }
-        if (!this.transformations.contains(transformation)) {
-            this.transformations.add(transformation);
-        }
-        return this;
-    }
-
-    public Creator clearTransformation() {
-        this.transformations.clear();
-        return this;
-    }
-
-    /**
-     * The drawable to be used while the image is being loaded.
-     */
-    public Creator loading(@DrawableRes int loadingResId) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            this.loading = vanGogh.context.getDrawable(loadingResId);
-        } else {
-            this.loading = vanGogh.context.getResources().getDrawable(loadingResId);
-        }
-        return this;
-    }
-
-    /**
-     * The drawable to be used while the image is being loaded.
-     */
-    public Creator loading(Drawable loading) {
-        this.loading = loading;
-        return this;
-    }
-
-    /**
-     * The drawable to be used if the request image could not be loaded.
-     */
-    public Creator error(@DrawableRes int errorResId) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            this.error = vanGogh.context.getDrawable(errorResId);
-        } else {
-            this.error = vanGogh.context.getResources().getDrawable(errorResId);
-        }
-        return this;
-    }
-
-    /**
-     * The drawable to be used if the request image could not be loaded.
-     */
-    public Creator error(Drawable error) {
-        this.error = error;
-        return this;
-    }
-
-    /**
-     * @param fade Enable or disable fade in of images loaded.
-     */
-    public Creator fade(boolean fade) {
-        this.fade = fade;
-        return this;
-    }
-
-    public Creator enableIndicator(boolean enabled) {
-        this.indicatorEnabled = enabled;
-        return this;
-    }
-
     public Creator tag(Object tag) {
         if (tag == null) {
             throw new IllegalArgumentException("tag == null");
@@ -211,50 +216,55 @@ public final class Creator {
         return this;
     }
 
+    public Creator callback(Callback callback) {
+        this.callback = callback != null ? callback : EmptyCallback.INSTANCE;
+        return this;
+    }
+
+    public void into(ImageView view) {
+        if (view == null) {
+            throw new NullPointerException("view == null");
+        }
+        quickFetchOrEnqueue(new ImageViewTarget(view), true);
+    }
+
     public void fetch(Callback callback) {
         if (callback == null) {
-            throw new IllegalArgumentException("callback == null");
+            throw new NullPointerException("callback == null");
         }
-        into(new FetchAction(this, callback), false);
-    }
-
-    public void into(ImageView target) {
-        into(target, null);
-    }
-
-    public void into(ImageView target, Callback callback) {
-        if (target == null) {
-            throw new IllegalArgumentException("target == null");
-        }
-        into(new ImageViewAction(this, target, callback), true);
+        quickFetchOrEnqueue(new FetchTarget(callback), false);
     }
 
     public void into(Target target) {
-        into(target, null);
-    }
-
-    public void into(Target target, Callback callback) {
         if (target == null) {
-            throw new IllegalArgumentException("target == null");
+            throw new NullPointerException("target == null");
         }
-        into(new TargetAction(this, target, vanGogh.context, callback), true);
+        quickFetchOrEnqueue(target, true);
     }
 
-    private void into(Action action, boolean enqueue) {
+    private void quickFetchOrEnqueue(Target target, boolean enqueue) {
         Utils.checkMain();
+        this.target = target;
         if (uri == Uri.EMPTY) {
-            vanGogh.cancelExistingAction(action.target());
-            action.error(new UnsupportedOperationException("unsupported uri: " + uri));
+            vanGogh.cancelExistingAction(this.target.unique());
+            Throwable cause = new UnsupportedOperationException("unsupported uri: " + uri);
+            this.target.onFailed(error, cause);
+            this.callback.onError(cause);
             return;
         }
+
+        this.key = Utils.createKey(this);
         if ((fromPolicy & From.MEMORY.policy) != 0) {
-            Bitmap bitmap = vanGogh.obtainFromMemoryCache(action.key);
+            Bitmap bitmap = vanGogh.obtainFromMemoryCache(this.key);
             if (bitmap != null) {
-                vanGogh.cancelExistingAction(action.target());
-                action.complete(bitmap, From.MEMORY);
+                vanGogh.cancelExistingAction(this.target.unique());
+                Drawable drawable = new VanGoghDrawable(vanGogh.context, bitmap, From.MEMORY, false, indicatorEnabled);
+                this.target.onLoaded(drawable, From.MEMORY);
+                this.callback.onSuccess(bitmap);
                 return;
             }
         }
+        Action action = new Action(this);
         if (enqueue) {
             vanGogh.enqueueAndSubmit(action);
         } else {

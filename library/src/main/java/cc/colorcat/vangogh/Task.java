@@ -37,10 +37,10 @@ public final class Task {
     private final Options options;
     private final List<Transformation> transformations;
 
-    Task(Creator creator, String key) {
+    Task(Creator creator) {
         this.uri = creator.uri;
         this.stableKey = creator.stableKey;
-        this.key = key;
+        this.key = creator.key;
         this.fromPolicy = creator.fromPolicy;
         this.connectTimeOut = creator.connectTimeOut;
         this.readTimeOut = creator.readTimeOut;

@@ -16,33 +16,39 @@
 
 package cc.colorcat.vangogh;
 
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.support.annotation.Nullable;
+import android.support.annotation.NonNull;
 
 /**
  * Author: cxx
- * Date: 2017-07-11
+ * Date: 2018-06-28
  * GitHub: https://github.com/ccolorcat
  */
-class EmptyTarget implements Target {
-    final static Target EMPTY = new EmptyTarget();
+class FetchTarget extends WeakTarget<Callback> {
+    FetchTarget(Callback callback) {
+        super(callback);
+    }
 
-    private EmptyTarget() {
+    @Override
+    public void onPrepare(Drawable placeholder) {
 
     }
 
     @Override
-    public void onPrepare(@Nullable Drawable placeHolder) {
+    public void onLoaded(@NonNull Drawable loaded, @NonNull From from) {
+        Callback callback = reference.get();
+        if (callback != null && loaded instanceof BitmapDrawable) {
+            callback.onSuccess(((BitmapDrawable) loaded).getBitmap());
+        }
 
     }
 
     @Override
-    public void onLoaded(Drawable drawable, From from) {
-
-    }
-
-    @Override
-    public void onFailed(@Nullable Drawable error, Throwable cause) {
-
+    public void onFailed(Drawable error, @NonNull Throwable cause) {
+        Callback callback = reference.get();
+        if (callback != null) {
+            callback.onError(cause);
+        }
     }
 }

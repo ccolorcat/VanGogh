@@ -24,35 +24,35 @@ import android.widget.ImageView;
  * Date: 2018-06-12
  * GitHub: https://github.com/ccolorcat
  */
-class ImageViewAction extends Action<ImageView> {
-
-    ImageViewAction(Creator creator, ImageView target, Callback callback) {
-        super(creator, target, callback);
-    }
-
-    @Override
-    void prepare() {
-        ImageView target = this.target();
-        if (target != null) {
-            target.setImageDrawable(loading);
-        }
-    }
-
-    @Override
-    void complete(Bitmap result, From from) {
-        ImageView target = target();
-        if (target != null) {
-            target.setImageDrawable(new VanGoghDrawable(target.getContext(), result, from, fade, indicatorEnabled));
-            callback.onSuccess(result);
-        }
-    }
-
-    @Override
-    void error(Throwable cause) {
-        ImageView target = this.target();
-        if (target != null) {
-            target.setImageDrawable(error);
-            callback.onError(cause);
-        }
-    }
-}
+//class ImageViewAction extends Action<ImageView> {
+//
+//    ImageViewAction(Creator creator, ImageView target, Callback callback) {
+//        super(creator, target, callback);
+//    }
+//
+//    @Override
+//    void onPreExecute() {
+//        ImageView target = this.targetUnique();
+//        if (target != null) {
+//            target.setImageDrawable(placeholder);
+//        }
+//    }
+//
+//    @Override
+//    void onSuccess(Bitmap result, From from) {
+//        ImageView target = targetUnique();
+//        if (target != null) {
+//            target.setImageDrawable(new VanGoghDrawable(target.getContext(), result, from, fade, indicatorEnabled));
+//            callback.onSuccess(result);
+//        }
+//    }
+//
+//    @Override
+//    void onFailed(Throwable cause) {
+//        ImageView target = this.targetUnique();
+//        if (target != null) {
+//            target.setImageDrawable(error);
+//            callback.onError(cause);
+//        }
+//    }
+//}
