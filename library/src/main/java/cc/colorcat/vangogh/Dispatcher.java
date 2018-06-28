@@ -48,16 +48,16 @@ class Dispatcher {
     static final int TAG_PAUSE = 106;
     static final int TAG_RESUME = 107;
 
+    private final VanGogh vanGogh;
+    private final ExecutorService executor;
     private final Handler mainHandler;
     private final DispatcherThread dispatcherThread;
     private final DispatcherHandler handler;
-    private final ExecutorService executor;
-    private final Map<String, Call> keyToCall = new LinkedHashMap<>();
-    private final List<Call> batch = new ArrayList<>(4);
-    private final Set<Object> pausedTags = new HashSet<>();
-    private final Map<Object, Action> pausedActions = new WeakHashMap<>(); // targetUnique to action
+    private final Map<String, Call> keyToCall;
+    private final List<Call> batch;
+    private final Set<Object> pausedTags;
+    private final Map<Object, Action> pausedActions; // targetUnique to action
 
-    private final VanGogh vanGogh;
 
     Dispatcher(VanGogh vanGogh, ExecutorService executor, Handler mainHandler) {
         this.vanGogh = vanGogh;
@@ -65,7 +65,12 @@ class Dispatcher {
         this.mainHandler = mainHandler;
         this.dispatcherThread = new DispatcherThread();
         this.dispatcherThread.start();
+        Utils.flushStackLocalLeaks(dispatcherThread.getLooper());
         this.handler = new DispatcherHandler(dispatcherThread.getLooper(), this);
+        this.keyToCall = new LinkedHashMap<>();
+        this.batch = new ArrayList<>(4);
+        this.pausedTags = new HashSet<>();
+        this.pausedActions = new WeakHashMap<>();
     }
 
     @MainThread

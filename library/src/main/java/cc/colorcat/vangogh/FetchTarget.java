@@ -41,7 +41,6 @@ class FetchTarget extends WeakTarget<Callback> {
         if (callback != null && loaded instanceof BitmapDrawable) {
             callback.onSuccess(((BitmapDrawable) loaded).getBitmap());
         }
-
     }
 
     @Override

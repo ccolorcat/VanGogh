@@ -35,6 +35,7 @@ import android.text.TextUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -78,7 +79,6 @@ public class VanGogh {
     final boolean indicatorEnabled;
     final boolean fade;
 
-
     private VanGogh(Builder builder, Cache<Bitmap> memoryCache, DiskCache diskCache) {
         this.context = builder.context;
         this.interceptors = Utils.immutableList(builder.interceptors);
@@ -99,6 +99,11 @@ public class VanGogh {
         this.dispatcher = new Dispatcher(this, builder.executor, new MainHandler(this));
     }
 
+    @Nullable
+    Bitmap obtainFromMemoryCache(String key) {
+        return memoryCache.get(key);
+    }
+
     void cancelExistingAction(Object targetUnique) {
         Action action = targetUniqueToAction.remove(targetUnique);
         if (action != null) {
@@ -107,6 +112,7 @@ public class VanGogh {
         }
     }
 
+    @MainThread
     void enqueueAndSubmit(Action action) {
         Object targetUnique = action.targetUnique();
         if (targetUnique != null && targetUniqueToAction.get(targetUnique) != action) {
@@ -116,6 +122,7 @@ public class VanGogh {
         submit(action);
     }
 
+    @MainThread
     void submit(Action action) {
         dispatcher.dispatchSubmit(action);
     }
@@ -165,6 +172,18 @@ public class VanGogh {
         dispatcher.dispatchResumeTag(tag);
     }
 
+    public void cancelTag(Object tag) {
+        Utils.checkMain();
+        for (Iterator<Action> i = targetUniqueToAction.values().iterator(); i.hasNext(); ) {
+            Action action = i.next();
+            if (action.tag.equals(tag)) {
+                i.remove();
+                action.cancel();
+                dispatcher.dispatchCancel(action);
+            }
+        }
+    }
+
     /**
      * Create a {@link Creator} using the specified path.
      *
@@ -208,29 +227,16 @@ public class VanGogh {
      */
     public Creator load(Uri uri) {
         Uri u = (uri == null ? Uri.EMPTY : uri);
-        String stableKey = Utils.md5(u.toString());
+        String stableKey = Utils.createStableKey(u);
         return new Creator(this, u, stableKey);
-    }
-
-    /**
-     * Clear all pending tasks.
-     */
-    public void clear() {
-//        dispatcher.clear();
     }
 
     /**
      * Clear all cached bitmaps from the memory.
      */
-    public void releaseMemory() {
+    public void clearMemoryCache() {
         memoryCache.clear();
     }
-
-    @Nullable
-    Bitmap obtainFromMemoryCache(String key) {
-        return memoryCache.get(key);
-    }
-
 
     /**
      * Set the global instance.

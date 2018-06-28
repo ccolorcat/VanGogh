@@ -23,7 +23,10 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.net.Uri;
+import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import android.support.annotation.ColorInt;
 
 import java.io.BufferedInputStream;
@@ -47,6 +50,17 @@ import java.util.List;
  * GitHub: https://github.com/ccolorcat
  */
 class Utils {
+
+    static void flushStackLocalLeaks(Looper looper) {
+        Handler handler = new Handler(looper) {
+            @Override
+            public void handleMessage(Message msg) {
+                sendMessageDelayed(obtainMessage(), 1000);
+            }
+        };
+        handler.sendMessageDelayed(handler.obtainMessage(), 1000);
+    }
+
     static <T> List<T> immutableList(List<T> list) {
         return Collections.unmodifiableList(new ArrayList<>(list));
     }
@@ -176,10 +190,14 @@ class Utils {
         return (T) ctx.getSystemService(service);
     }
 
+    static String createStableKey(Uri uri) {
+        return md5(uri.toString());
+    }
+
     /**
      * md5 加密，如果加密失败则原样返回
      */
-    static String md5(String resource) {
+    private static String md5(String resource) {
         String result = resource;
         try {
             MessageDigest digest = MessageDigest.getInstance("MD5");
