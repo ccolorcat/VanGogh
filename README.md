@@ -38,7 +38,7 @@ VanGogh.with(getContext()) //如已设置单例或调用过 VanGogh.with(getCont
 
 ```groovy
 	dependencies {
-	        implementation 'com.github.ccolorcat:VanGogh:v1.1.1'
+	        implementation 'com.github.ccolorcat:VanGogh:v2.0.0'
 	}
 ```
 
