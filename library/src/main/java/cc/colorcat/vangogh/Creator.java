@@ -228,7 +228,7 @@ public final class Creator {
     }
 
     public Creator callback(Callback callback) {
-        this.callback = callback != null ? callback : EmptyCallback.INSTANCE;
+        this.callback = (callback != null ? callback : EmptyCallback.INSTANCE);
         return this;
     }
 
@@ -239,9 +239,9 @@ public final class Creator {
         quickFetchOrEnqueue(new ImageViewTarget(view), true);
     }
 
-    public void fetch(Callback callback) {
-        if (callback == null) {
-            throw new NullPointerException("callback == null");
+    public void fetch() {
+        if (callback == EmptyCallback.INSTANCE) {
+            throw new NullPointerException("callback has not been set");
         }
         quickFetchOrEnqueue(new FetchTarget(callback), false);
     }

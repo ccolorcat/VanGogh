@@ -16,7 +16,6 @@
 
 package cc.colorcat.vangogh;
 
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
 
@@ -37,17 +36,9 @@ class FetchTarget extends WeakTarget<Callback> {
 
     @Override
     public void onLoaded(@NonNull Drawable loaded, @NonNull From from) {
-        Callback callback = reference.get();
-        if (callback != null && loaded instanceof BitmapDrawable) {
-            callback.onSuccess(((BitmapDrawable) loaded).getBitmap());
-        }
     }
 
     @Override
     public void onFailed(Drawable error, @NonNull Throwable cause) {
-        Callback callback = reference.get();
-        if (callback != null) {
-            callback.onError(cause);
-        }
     }
 }
