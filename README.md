@@ -38,11 +38,16 @@ VanGogh.with(getContext()) //如已设置单例或调用过 VanGogh.with(getCont
 
 ```groovy
 	dependencies {
-	        implementation 'com.github.ccolorcat:VanGogh:v2.1.0'
+	        implementation 'com.github.ccolorcat:VanGogh:v2.2.0'
 	}
 ```
 
 ## 4. 版本历史
+
+v2.2.0
+
+> 1. 添加 CompoundViewTarget，对应功能可见 TextView.setCompoundDrawablesWithIntrinsicBounds(Drawable, Drawable, Drawable, Drawable).
+> 2. 修改了 Creator.fetch() 的实现。
 
 v2.1.0
 
