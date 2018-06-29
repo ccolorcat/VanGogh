@@ -28,7 +28,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.support.annotation.DrawableRes;
-import android.support.annotation.MainThread;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 
@@ -120,7 +119,6 @@ public class VanGogh {
         }
     }
 
-    @MainThread
     void enqueueAndSubmit(Action action) {
         Object targetUnique = action.targetUnique();
         if (targetUnique != null && targetUniqueToAction.get(targetUnique) != action) {
@@ -130,7 +128,6 @@ public class VanGogh {
         submit(action);
     }
 
-    @MainThread
     void submit(Action action) {
         dispatcher.dispatchSubmit(action);
     }
@@ -147,7 +144,6 @@ public class VanGogh {
         }
     }
 
-    @MainThread
     void resumeAction(Action action) {
         Bitmap bitmap = null;
         if ((action.task.fromPolicy() & From.MEMORY.policy) != 0) {
@@ -173,14 +169,23 @@ public class VanGogh {
     }
 
     public void pauseTag(Object tag) {
+        if (tag == null) {
+            throw new NullPointerException("tag == null");
+        }
         dispatcher.dispatchPauseTag(tag);
     }
 
     public void resumeTag(Object tag) {
+        if (tag == null) {
+            throw new NullPointerException("tag == null");
+        }
         dispatcher.dispatchResumeTag(tag);
     }
 
     public void cancelTag(Object tag) {
+        if (tag == null) {
+            throw new NullPointerException("tag == null");
+        }
         Utils.checkMain();
         for (Iterator<Action> i = targetUniqueToAction.values().iterator(); i.hasNext(); ) {
             Action action = i.next();

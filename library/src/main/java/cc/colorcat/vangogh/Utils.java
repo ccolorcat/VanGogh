@@ -67,7 +67,7 @@ class Utils {
 
     static void checkMain() {
         if (Looper.getMainLooper().getThread() != Thread.currentThread()) {
-            throw new IllegalStateException("Method call should not happen reqFrom the main thread.");
+            throw new IllegalStateException("Current thread is not main thread.");
         }
     }
 

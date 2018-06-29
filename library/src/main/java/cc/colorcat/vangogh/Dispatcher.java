@@ -21,7 +21,6 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
-import android.support.annotation.MainThread;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -73,7 +72,6 @@ class Dispatcher {
         this.pausedActions = new WeakHashMap<>();
     }
 
-    @MainThread
     void dispatchSubmit(Action action) {
         action.onPreExecute();
         handler.sendMessage(handler.obtainMessage(ACTION_SUBMIT, action));

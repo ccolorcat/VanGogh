@@ -16,6 +16,7 @@
 
 package cc.colorcat.vangogh;
 
+import android.graphics.drawable.AnimationDrawable;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
 import android.view.View;
@@ -32,23 +33,26 @@ public abstract class ViewTarget<V extends View> extends WeakTarget<V> {
 
     @Override
     public void onPrepare(Drawable placeholder) {
-        setDrawable(placeholder);
+        setDrawable(placeholder, true);
     }
 
     @Override
     public void onLoaded(@NonNull Drawable loaded, @NonNull From from) {
-        setDrawable(loaded);
+        setDrawable(loaded, false);
     }
 
     @Override
     public void onFailed(Drawable error, @NonNull Throwable cause) {
-        setDrawable(error);
+        setDrawable(error, true);
     }
 
-    private void setDrawable(Drawable drawable) {
+    private void setDrawable(Drawable drawable, boolean maybeAnimation) {
         V view = reference.get();
         if (view != null) {
             setDrawable(view, drawable);
+            if (drawable != null && maybeAnimation && drawable instanceof AnimationDrawable) {
+                ((AnimationDrawable) drawable).start();
+            }
         }
     }
 
