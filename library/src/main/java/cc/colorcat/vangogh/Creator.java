@@ -22,6 +22,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.util.TypedValue;
 import android.widget.ImageView;
 
@@ -230,6 +231,13 @@ public final class Creator {
     public Creator callback(Callback callback) {
         this.callback = (callback != null ? callback : EmptyCallback.INSTANCE);
         return this;
+    }
+
+    @Nullable
+    public Bitmap peek() {
+        Utils.checkMain();
+        this.key = Utils.createKey(this);
+        return vanGogh.obtainFromMemoryCache(this.key);
     }
 
     public void into(ImageView view) {

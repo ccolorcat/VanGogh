@@ -8,7 +8,6 @@
 * 支持内存、磁盘两级缓存，自动管理缓存大小。
 * 支持“暂停/恢复”加载，可与 RecyclerView 和 ListView 等配合使用实现滚动时暂停加载。
 * 支持缓存策略配置，可自定义只加载内存、只加载本地、只加载网络或多种策略组合使用，默认任何来源。
-* 支持任务加载策略配置。
 * 支持自定义图片变形处理等。
 * 支持根据图片来源为图片添加水印，便于开发状态观察图片来源，对应关系：内存——绿色，磁盘——蓝色，网络——红色，此功能默认关闭。
 * 支持正在加载及加载失败的占位图。
@@ -38,11 +37,15 @@ VanGogh.with(getContext()) //如已设置单例或调用过 VanGogh.with(getCont
 
 ```groovy
 	dependencies {
-	        implementation 'com.github.ccolorcat:VanGogh:v2.2.0'
+	        implementation 'com.github.ccolorcat:VanGogh:v2.3.0'
 	}
 ```
 
 ## 4. 版本历史
+
+v2.3.0
+
+> 1. 添加 Creator.peek() 方法，可尝试从内存中获取图片。
 
 v2.2.0
 

@@ -38,8 +38,8 @@ project.ext {
     // android.defaultConfig
     minSdkVersion = 15
     targetSdkVersion = sdkVersion
-    versionCode = 6
-    versionName = "2.2.0"
+    versionCode = 7
+    versionName = "2.3.0"
 
     // dependencies
     supportAppcompat = "com.android.support:appcompat-v7:${supportVersion}"
@@ -49,6 +49,6 @@ project.ext {
     junit = 'junit:junit:4.12'
     testRunner = 'com.android.support.test:runner:1.0.2'
     testEspresso = 'com.android.support.test.espresso:espresso-core:3.0.2'
-    adapter = 'com.github.ccolorcat:Adapter:v1.1.0'
+    adapter = 'com.github.ccolorcat:Adapter:v1.1.1'
     gson = 'com.google.code.gson:gson:2.8.5'
 }
