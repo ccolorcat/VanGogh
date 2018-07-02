@@ -36,7 +36,7 @@ class EmptyCallback implements Callback {
     }
 
     @Override
-    public void onError(@NonNull Throwable cause) {
+    public void onFailed(@NonNull Throwable cause) {
 
     }
 }

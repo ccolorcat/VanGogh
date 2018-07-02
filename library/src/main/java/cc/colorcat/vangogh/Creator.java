@@ -259,8 +259,8 @@ public final class Creator {
         if (uri == Uri.EMPTY) {
             vanGogh.cancelExistingAction(this.target.unique());
             Throwable cause = new UnsupportedOperationException("unsupported uri: " + uri);
-            this.target.onFailed(error, cause);
-            this.callback.onError(cause);
+            this.target.onError(error, cause);
+            this.callback.onFailed(cause);
             LogUtils.e(cause);
             return;
         }

@@ -28,5 +28,5 @@ public interface Callback {
 
     void onSuccess(@NonNull Bitmap bitmap);
 
-    void onError(@NonNull Throwable cause);
+    void onFailed(@NonNull Throwable cause);
 }

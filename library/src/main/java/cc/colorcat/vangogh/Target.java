@@ -30,7 +30,7 @@ public interface Target {
 
     void onLoaded(@NonNull Drawable loaded, @NonNull From from);
 
-    void onFailed(Drawable error, @NonNull Throwable cause);
+    void onError(Drawable error, @NonNull Throwable cause);
 
     Object unique();
 }

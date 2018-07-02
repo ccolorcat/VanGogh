@@ -79,7 +79,7 @@ class Action {
     }
 
     void onFailed(@NonNull Throwable cause) {
-        target.onFailed(error, cause);
-        callback.onError(cause);
+        target.onError(error, cause);
+        callback.onFailed(cause);
     }
 }

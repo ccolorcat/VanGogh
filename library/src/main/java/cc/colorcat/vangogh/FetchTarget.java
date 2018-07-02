@@ -39,6 +39,6 @@ class FetchTarget extends WeakTarget<Callback> {
     }
 
     @Override
-    public void onFailed(Drawable error, @NonNull Throwable cause) {
+    public void onError(Drawable error, @NonNull Throwable cause) {
     }
 }

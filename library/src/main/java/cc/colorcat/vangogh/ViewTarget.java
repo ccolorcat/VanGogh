@@ -42,7 +42,7 @@ public abstract class ViewTarget<V extends View> extends WeakTarget<V> {
     }
 
     @Override
-    public void onFailed(Drawable error, @NonNull Throwable cause) {
+    public void onError(Drawable error, @NonNull Throwable cause) {
         setDrawable(error, true);
     }
 
