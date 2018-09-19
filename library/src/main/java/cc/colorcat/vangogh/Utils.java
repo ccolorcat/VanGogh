@@ -240,7 +240,7 @@ class Utils {
         return result;
     }
 
-    private static Bitmap applyOptions(Bitmap result, Task.Options to, boolean onlyScaleDown) {
+    static Bitmap applyOptions(Bitmap result, Task.Options to, boolean onlyScaleDown) {
         int inWidth = result.getWidth(), inHeight = result.getHeight();
         int drawX = 0, drawY = 0;
         int drawWidth = inWidth, drawHeight = inHeight;

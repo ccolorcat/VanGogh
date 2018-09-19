@@ -25,23 +25,27 @@ VanGogh.with(getContext()) //如已设置单例或调用过 VanGogh.with(getCont
 (1) 在项目的 build.gradle 中配置仓库地址：
 
 ```groovy
-	allprojects {
-		repositories {
-			...
-			maven { url 'https://jitpack.io' }
-		}
-	}
+allprojects {
+    repositories {
+        ...
+        maven { url 'https://jitpack.io' }
+    }
+}
 ```
 
 (2) 添加项目依赖：
 
 ```groovy
-	dependencies {
-	        implementation 'com.github.ccolorcat:VanGogh:v2.3.0'
-	}
+dependencies {
+    implementation 'com.github.ccolorcat:VanGogh:v2.4.0'
+}
 ```
 
 ## 4. 版本历史
+
+v2.4.0
+
+> 1. 修复一个 bug.
 
 v2.3.0
 
